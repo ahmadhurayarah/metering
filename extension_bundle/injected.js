@@ -1,0 +1,2 @@
+(function(a){a=XMLHttpRequest.prototype;var d=a.open,e=a.send;a.open=function(c,b){this._method=c;this._url=b;return d.apply(this,arguments)};a.send=function(c){"loadstart load loadend progress error abort timeout readystatechange".split(" ").forEach(b=>{this.addEventListener(b,function(){if(this._url.startsWith("/search")&&4===this.readyState)try{window.postMessage({type:"search",data:this.response},"*")}catch(f){console.error("Error posting XHR response:",f)}}.bind(this))});return e.apply(this,
+arguments)}})(XMLHttpRequest);

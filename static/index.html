@@ -30,35 +30,34 @@
     }
     a { color: var(--blue); }
     .shell { width: min(1480px, calc(100% - 40px)); margin: 0 auto; padding: 25px 0 48px; }
-    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 36px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
     .brand { display: flex; align-items: center; gap: 12px; }
     .brand-mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 13px; color: #062218; background: var(--accent); font-weight: 900; font-size: 19px; }
     .brand-name { font-size: 15px; font-weight: 750; letter-spacing: .01em; }
     .brand-caption { color: var(--muted); font-size: 12px; margin-top: 1px; }
-    .mode-pill { padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: #bfcee3; background: #0e192b; font-size: 12px; white-space: nowrap; }
-    .intro { max-width: 790px; margin: 0 0 27px; }
-    .eyebrow { color: var(--accent); font-weight: 750; letter-spacing: .12em; font-size: 11px; text-transform: uppercase; }
-    h1 { margin: 8px 0 8px; font-size: clamp(27px, 4vw, 40px); line-height: 1.12; letter-spacing: -.035em; }
-    .intro p { color: var(--muted); margin: 0; font-size: 15px; }
+
+
+
+
     .layout { display: grid; grid-template-columns: minmax(275px, 350px) minmax(0, 1fr); align-items: start; gap: 18px; }
     .card { border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 94%, transparent); border-radius: 16px; box-shadow: 0 16px 45px #02071140; }
     .search-card { padding: 20px; }
     .card-title { margin: 0; font-size: 16px; letter-spacing: -.01em; }
     .card-subtitle { margin: 5px 0 18px; color: var(--muted); font-size: 12px; }
     label { display: block; margin: 14px 0 6px; color: #cad7e8; font-size: 12px; font-weight: 650; }
-    input[type="text"], input[type="number"] {
+    input[type="text"] {
       width: 100%; border: 1px solid #30415d; border-radius: 9px; background: #0c1628; color: var(--text);
       padding: 11px 12px; font: inherit; outline: none;
     }
     input:focus { border-color: #62d6a3; box-shadow: 0 0 0 3px #43bb8c22; }
     .query-hint { color: #8092ad; font-size: 11px; margin: 6px 0 0; }
-    .check-row { display: flex; align-items: flex-start; gap: 9px; margin: 17px 0 4px; color: #d9e3f0; font-size: 12px; }
-    .check-row input { margin: 3px 0 0; accent-color: var(--accent-strong); }
-    .check-row small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; margin-top: 2px; }
+
+
+
     .primary-btn { width: 100%; min-height: 44px; margin-top: 18px; border: 0; border-radius: 10px; color: #052317; background: var(--accent); font: inherit; font-weight: 800; cursor: pointer; transition: .15s ease; }
     .primary-btn:hover:not(:disabled) { background: #a0f0cb; transform: translateY(-1px); }
     .primary-btn:disabled { opacity: .55; cursor: wait; }
-    .fine-print { color: #8495ae; font-size: 11px; line-height: 1.55; margin: 13px 1px 0; }
+
     .side-section { margin-top: 14px; padding: 17px 18px; }
     .side-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .side-heading h2 { margin: 0; font-size: 13px; }
@@ -90,10 +89,10 @@
     .stat { min-width: 94px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #0c1728; }
     .stat strong { display: block; font-size: 16px; line-height: 1.2; }
     .stat span { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
-    .table-tools { display: flex; align-items: center; gap: 9px; padding: 0 20px 13px; }
+    .table-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 0 20px 13px; }
     .filter-input { max-width: 340px; padding: 8px 10px !important; font-size: 12px !important; }
     .download-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 35px; padding: 0 12px; border: 1px solid #37536f; border-radius: 8px; background: #14233a; color: #cfe5ff; text-decoration: none; font-size: 11px; font-weight: 700; }
-    .download-btn[aria-disabled="true"] { opacity: .42; pointer-events: none; }
+    .download-btn:disabled, .download-btn[aria-disabled="true"] { opacity: .42; pointer-events: none; }
     .showing-count { margin-left: auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
     .table-scroll { width: 100%; overflow: auto; max-height: min(66vh, 720px); border-top: 1px solid var(--line); scrollbar-color: #33445f #0c1628; }
     table { border-collapse: separate; border-spacing: 0; min-width: 100%; width: max-content; font-size: 11px; }
@@ -119,7 +118,7 @@
     }
     @media (max-width: 480px) {
       .shell { width: calc(100% - 18px); }
-      .mode-pill { display: none; }
+
       .stats { gap: 5px; }
       .stat { min-width: 0; padding: 7px; }
       .filter-input { max-width: none; flex: 1 1 100%; }
@@ -134,36 +133,20 @@
         <div class="brand-mark" aria-hidden="true">M</div>
         <div><div class="brand-name">Metering Lead Finder</div><div class="brand-caption">Berlin property-management research</div></div>
       </div>
-      <div class="mode-pill">FastAPI dashboard · standalone Playwright scraper</div>
     </header>
-
-    <section class="intro">
-      <div class="eyebrow">Prospect discovery</div>
-      <h1>Find property managers.<br>Review the evidence.</h1>
-      <p>Run a Google Maps query, collect business listings, and view public website emails alongside the full scraper output.</p>
-    </section>
 
     <div class="layout">
       <aside>
         <section class="card search-card">
           <h2 class="card-title">Start a Google Maps search</h2>
-          <p class="card-subtitle">The collector runs locally in the backend. No LangChain or search API key is used.</p>
+          <p class="card-subtitle">Fetch business listings first. Get website emails separately from the results toolbar.</p>
           <form id="search-form">
             <label for="query">Search query</label>
             <input id="query" name="query" type="text" maxlength="200" required value="Hausverwaltung Berlin" autocomplete="off" placeholder="e.g. WEG-Verwaltung Berlin">
             <p class="query-hint">Try: Hausverwaltung, WEG-Verwaltung, or Mietverwaltung + a Berlin district.</p>
 
-            <label for="limit">Maximum listings to collect</label>
-            <input id="limit" name="limit" type="number" min="1" max="999" value="999" required>
-            <p class="query-hint">999 is a ceiling, not a promise that Google Maps will expose 999 results.</p>
-
-            <label class="check-row" for="crawl-websites">
-              <input id="crawl-websites" name="crawl_websites" type="checkbox" checked>
-              <span>Look for public emails on listed websites<small>Slower. Email results are unverified and may include false matches.</small></span>
-            </label>
-            <button id="submit-button" class="primary-btn" type="submit">Run search</button>
+            <button id="submit-button" class="primary-btn" type="submit">Fetch raw data</button>
           </form>
-          <p class="fine-print">Google Maps may limit or change results. The collector stops at verification challenges and does not try to bypass them. No emails are sent.</p>
         </section>
 
         <section class="card side-section">
@@ -173,9 +156,9 @@
       </aside>
 
       <section class="workspace" aria-label="Search results">
-        <div id="status-card" class="card status-card" aria-live="polite">
-          <div class="status-line"><span id="status-dot" class="status-dot"></span><span id="status-title" class="status-title">Ready when you are</span></div>
-          <div id="status-detail" class="status-detail">Enter a query to start a new local search.</div>
+        <div id="status-card" class="card status-card" aria-live="polite" hidden>
+          <div class="status-line"><span id="status-dot" class="status-dot"></span><span id="status-title" class="status-title"></span></div>
+          <div id="status-detail" class="status-detail"></div>
           <div id="status-alert" class="alert" hidden></div>
         </div>
 
@@ -190,11 +173,12 @@
           </div>
           <div class="table-tools">
             <input id="filter" class="filter-input" type="text" placeholder="Filter visible results…" aria-label="Filter results" disabled>
+            <button id="get-emails" class="download-btn" type="button" disabled>Get emails</button>
             <a id="download" class="download-btn" href="#" aria-disabled="true">Download CSV</a>
             <span id="showing-count" class="showing-count">No rows</span>
           </div>
           <div id="table-container" class="table-scroll">
-            <div class="table-empty">Run a search to populate the results table.</div>
+            <div class="table-empty">Fetch raw data to populate the results table.</div>
           </div>
           <div class="footer-note">Email addresses are collected from public website content where available. They are not confirmed as decision-maker contacts.</div>
         </div>
@@ -203,7 +187,7 @@
   </main>
 
   <script>
-    const state = { currentJob: null, currentJobData: null, pollTimer: null, history: [] };
+    const state = { currentJob: null, currentJobData: null, pollTimer: null, history: [], pending: false };
     const form = document.getElementById('search-form');
     const submitButton = document.getElementById('submit-button');
     const statusDot = document.getElementById('status-dot');
@@ -213,8 +197,41 @@
     const tableContainer = document.getElementById('table-container');
     const filterInput = document.getElementById('filter');
     const downloadLink = document.getElementById('download');
+    const getEmailsButton = document.getElementById('get-emails');
+
+    function isBusy(job) {
+      return job && (['queued', 'running'].includes(job.status) || ['queued', 'running'].includes(job.enrichment_status));
+    }
+
+    function updateControls() {
+      const job = state.currentJobData;
+      const busy = state.pending || isBusy(job) || state.history.some(isBusy);
+      submitButton.disabled = Boolean(busy);
+      getEmailsButton.disabled = Boolean(busy || !job || !['completed', 'partial'].includes(job.status)
+        || !(job.results || []).some(row => String(row.website || '').trim())
+        || job.enrichment_status === 'completed');
+      getEmailsButton.textContent = job && ['queued', 'running'].includes(job.enrichment_status)
+        ? 'Getting emails…' : job && job.enrichment_status === 'completed' ? 'Emails fetched' : 'Get emails';
+    }
+
+    getEmailsButton.addEventListener('click', async () => {
+      if (!state.currentJob || getEmailsButton.disabled) return;
+      state.pending = true;
+      updateControls();
+      try {
+        const jobId = state.currentJob;
+        await requestJson('/api/jobs/' + encodeURIComponent(jobId) + '/emails', {method: 'POST'});
+        await pollJob(jobId);
+      } catch (error) {
+        setStatus('failed', 'Could not get emails', 'Your existing results are unchanged.', error.message, true);
+      } finally {
+        state.pending = false;
+        updateControls();
+      }
+    });
 
     function setStatus(status, title, detail, message = '', isError = false) {
+      document.getElementById('status-card').hidden = false;
       statusDot.className = 'status-dot' + (status ? ' ' + status : '');
       statusTitle.textContent = title;
       statusDetail.textContent = detail || '';
@@ -236,13 +253,12 @@
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      submitButton.disabled = true;
+      state.pending = true;
+      updateControls();
       statusAlert.hidden = true;
       try {
         const payload = {
-          query: document.getElementById('query').value,
-          limit: Number(document.getElementById('limit').value),
-          crawl_websites: document.getElementById('crawl-websites').checked
+          query: document.getElementById('query').value
         };
         const job = await requestJson('/api/search', {
           method: 'POST',
@@ -254,7 +270,8 @@
       } catch (error) {
         setStatus('failed', 'Could not start search', 'Check the query and try again.', error.message, true);
       } finally {
-        submitButton.disabled = false;
+        state.pending = false;
+        updateControls();
       }
     });
 
@@ -264,7 +281,8 @@
         const job = await requestJson('/api/jobs/' + encodeURIComponent(jobId));
         renderJob(job);
         await loadHistory();
-        if (job.status === 'queued' || job.status === 'running') {
+        updateControls();
+        if (isBusy(job)) {
           submitButton.disabled = true;
           state.pollTimer = setTimeout(() => pollJob(jobId), 1400);
         } else {
@@ -280,10 +298,12 @@
       const jobChanged = state.currentJob !== job.job_id;
       state.currentJob = job.job_id;
       state.currentJobData = job;
-      const label = friendlyStatus(job.status);
+      const emailBusy = ['queued', 'running'].includes(job.enrichment_status);
+      const label = emailBusy ? 'Getting emails' : job.enrichment_status === 'failed' ? 'Email lookup failed'
+        : job.enrichment_status === 'completed' ? 'Emails fetched' : friendlyStatus(job.status);
       const detail = `${job.query} · ${job.result_count} listing(s) · ${job.email_count} listing(s) with an extracted email`;
-      let message = job.warning || job.error || '';
-      setStatus(job.status, label, detail, message, job.status === 'failed');
+      let message = job.enrichment_error || job.warning || job.error || '';
+      setStatus(emailBusy ? 'running' : job.status, label, detail, message, job.status === 'failed' || job.enrichment_status === 'failed');
       document.getElementById('results-title').textContent = 'Results: ' + job.query;
       document.getElementById('results-subtitle').textContent = job.output_file ? 'Saved locally as ' + job.output_file : 'Search results from the standalone Maps collector.';
       document.getElementById('total-count').textContent = job.result_count;
@@ -295,6 +315,7 @@
       if (jobChanged) filterInput.value = '';
       renderTable(job.fields || [], job.results || []);
       renderHistoryActive(job.job_id);
+      updateControls();
     }
 
     function prettyField(field) {
@@ -317,7 +338,7 @@
       if (!rows.length) {
         const empty = document.createElement('div');
         empty.className = 'table-empty';
-        empty.textContent = state.currentJob ? 'No listings were returned for this search.' : 'Run a search to populate the results table.';
+        empty.textContent = state.currentJob ? 'No listings were returned for this search.' : 'Fetch raw data to populate the results table.';
         tableContainer.appendChild(empty);
         document.getElementById('showing-count').textContent = 'No rows';
         return;
@@ -373,6 +394,7 @@
         const data = await requestJson('/api/jobs');
         state.history = data.jobs || [];
         renderHistory();
+        updateControls();
       } catch (_) {
         // Keep the current result visible if history refresh fails.
       }

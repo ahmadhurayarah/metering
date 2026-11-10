@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --background: oklch(0.2679 0.0036 106.6427);
+  --foreground: oklch(0.8074 0.0142 93.0137);
+  --primary: oklch(0.6724 0.1308 38.7559);
+  --primary-foreground: oklch(1 0 0);
+  --destructive: oklch(0.6368 0.2078 25.3313);
+  --destructive-foreground: oklch(1 0 0);
+  --muted: oklch(0.2213 0.0038 106.707);
+  --border: oklch(0.3618 0.0101 106.8928);
+}
+
+/* Main Floating Panel */
+.extension_gms_page {
+    width: 220px;
+    background-color: var(--background) !important;
+    margin-top: 80px;
+    margin-left: 20px;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    height: max-content !important;
+    gap: 8px !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+    font-family: 'Inter', sans-serif !important;
+    z-index: 999999 !important;
+}
+
+/* Leads Counter Text */
+#extension_gms_leads_info {
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    color: var(--foreground) !important;
+    margin: 0 !important;
+    text-align: center;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border) !important;
+    margin-bottom: 4px !important;
+}
+
+/* Base Button Style */
+.extension_gms_button {
+    width: 100% !important;
+    height: 36px !important;
+    border-radius: 6px !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    border: none !important;
+    color: var(--primary-foreground) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.extension_gms_button:active {
+    transform: scale(0.98) !important;
+}
+
+/* Start Extract Button (Shadcn Primary) */
+#extension_gms_start_btn {
+    background: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+}
+
+#extension_gms_start_btn:hover {
+    background: color-mix(in srgb, var(--primary) 90%, black) !important;
+}
+
+/* Stop Extract Button State (Shadcn Destructive) */
+#extension_gms_start_btn.active-stop {
+    background: var(--destructive) !important;
+    color: var(--destructive-foreground) !important;
+}
+
+#extension_gms_start_btn.active-stop:hover {
+    background: color-mix(in srgb, var(--destructive) 90%, black) !important;
+}
+
+/* Export Leads Button (Secondary) */
+.extension_gms_btn_export {
+    background-color: var(--muted) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--foreground) !important;
+}
+
+.extension_gms_btn_export:hover {
+    background-color: color-mix(in srgb, var(--muted) 80%, white) !important;
+}
+
+/* Clear Button (Destructive outline) */
+.extension_gms_btn_clear {
+    background-color: transparent !important;
+    border: 1px solid var(--border) !important;
+    color: var(--foreground) !important;
+}
+
+.extension_gms_btn_clear:hover {
+    background-color: color-mix(in srgb, var(--destructive) 10%, transparent) !important;
+    border-color: var(--destructive) !important;
+    color: var(--destructive) !important;
+}

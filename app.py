@@ -12,13 +12,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field, field_validator
 
-import maps_scraper
+from extension_bundle import run_hermes_scrape as extension_scraper
+from csv_output import CSV_FIELDS, query_to_filename, save_results
 
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_FILE = BASE_DIR / "static" / "index.html"
 OUTPUT_DIR = BASE_DIR / "output"
-CSV_FIELDS = maps_scraper.CSV_FIELDS
+
 
 app = FastAPI(title="Metering Lead Finder", version="0.1.0")
 JOBS: dict[str, dict[str, Any]] = {}
@@ -28,8 +29,7 @@ BACKGROUND_TASKS: set[asyncio.Task] = set()
 
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=200)
-    limit: int = Field(default=999, ge=1, le=999)
-    crawl_websites: bool = True
+    # Collection is always uncapped and raw-only; website lookup is a separate action.
 
     @field_validator("query")
     @classmethod
@@ -55,6 +55,8 @@ def _public_job(job: dict[str, Any], include_results: bool) -> dict[str, Any]:
         "limit": job["limit"],
         "crawl_websites": job["crawl_websites"],
         "status": job["status"],
+        "enrichment_status": job.get("enrichment_status", "not_started"),
+        "enrichment_error": job.get("enrichment_error"),
         "created_at": job["created_at"],
         "updated_at": job["updated_at"],
         "result_count": len(job.get("results", [])),
@@ -65,6 +67,7 @@ def _public_job(job: dict[str, Any], include_results: bool) -> dict[str, Any]:
         "output_file": Path(job["csv_path"]).name if job.get("csv_path") else None,
         "warning": job.get("warning"),
         "error": job.get("error"),
+        "stop_reason": job.get("stop_reason"),
         "log": job.get("log", []),
         "download_url": f"/api/jobs/{job['job_id']}/csv",
     }
@@ -73,67 +76,43 @@ def _public_job(job: dict[str, Any], include_results: bool) -> dict[str, Any]:
     return result
 
 
-async def run_scraper(query: str, limit: int, crawl_websites: bool) -> dict[str, Any]:
-    """Run the local standalone Maps collector and save its CSV output."""
+async def run_scraper(query: str, limit: int = 0) -> dict[str, Any]:
+    """Collect uncapped Maps records through the extension, without website lookup."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     try:
-        leads = await maps_scraper.collect_maps(
-            query,
-            limit=limit,
-            timeout=7200,
-            headless=True,
+        leads = await extension_scraper.scrape_google_maps(
+            query=query, limit=limit, output_dir=None, crawl_websites=False
         )
-    except maps_scraper.CollectionIncomplete as exc:
-        partial_path = maps_scraper.save_results(
-            exc.leads, query + "_partial", OUTPUT_DIR
-        )
+    except extension_scraper.CollectionIncomplete as exc:
+        partial_path = save_results(exc.leads, query + "_partial", OUTPUT_DIR)
         return {
-            "status": "partial",
-            "results": exc.leads,
-            "csv_path": str(partial_path),
-            "raw_csv_path": None,
-            "warning": str(exc),
+            "status": "partial", "results": exc.leads, "warning": str(exc),
+            "csv_path": str(partial_path), "raw_csv_path": str(partial_path),
+            "stop_reason": exc.stop_reason,
         }
-
-    raw_path = None
-    if crawl_websites and leads:
-        raw_path = maps_scraper.save_results(leads, query + "_raw", OUTPUT_DIR)
-        try:
-            leads = await maps_scraper.enrich_leads_with_websites(leads)
-        except Exception as exc:
-            return {
-                "status": "partial",
-                "results": leads,
-                "csv_path": str(raw_path),
-                "raw_csv_path": str(raw_path),
-                "warning": f"Maps results were collected, but website email enrichment failed: {exc}",
-            }
-
-    csv_path = maps_scraper.save_results(leads, query, OUTPUT_DIR)
+    raw_path = save_results(leads, query + "_raw", OUTPUT_DIR)
     return {
-        "status": "completed",
-        "results": leads,
-        "csv_path": str(csv_path),
-        "raw_csv_path": str(raw_path) if raw_path else None,
-        "warning": None,
+        "status": "completed", "results": leads,
+        "csv_path": str(raw_path), "raw_csv_path": str(raw_path), "warning": None,
+        "stop_reason": getattr(leads, "stop_reason", None),
     }
-
 
 async def _execute_job(job_id: str) -> None:
     global ACTIVE_JOB_ID
     job = JOBS[job_id]
     job["status"] = "running"
     job["updated_at"] = _now()
-    job["log"].append("Starting the standalone Google Maps collector.")
+    job["log"].append("Loading the bundled scraping extension in headless Chromium. The extension collects Maps records.")
     try:
         outcome = await run_scraper(
-            job["query"], job["limit"], job["crawl_websites"]
+            job["query"], job["limit"]
         )
         job["status"] = outcome.get("status", "completed")
         job["results"] = outcome.get("results", [])
         job["csv_path"] = outcome.get("csv_path")
         job["raw_csv_path"] = outcome.get("raw_csv_path")
         job["warning"] = outcome.get("warning")
+        job["stop_reason"] = outcome.get("stop_reason")
         job["log"].append(
             f"Finished with {len(job['results'])} result(s); "
             f"{_email_count(job['results'])} listing(s) contain an extracted email."
@@ -148,6 +127,55 @@ async def _execute_job(job_id: str) -> None:
             ACTIVE_JOB_ID = None
 
 
+async def _execute_email_job(job_id: str) -> None:
+    global ACTIVE_JOB_ID
+    job = JOBS[job_id]
+    job["enrichment_status"] = "running"
+    job["updated_at"] = _now()
+    job["log"].append("Looking up website emails through the extension background worker.")
+    try:
+        rows = await extension_scraper.enrich_leads_with_websites(
+            [dict(row) for row in job["results"]]
+        )
+        path = save_results(rows, job["query"] + "_emails", OUTPUT_DIR)
+        job["results"] = rows
+        job["csv_path"] = str(path)
+        job["enrichment_status"] = "completed"
+        job["log"].append(f"Email lookup finished; {_email_count(rows)} listing(s) contain an extracted email.")
+    except Exception as exc:
+        job["enrichment_status"] = "failed"
+        job["enrichment_error"] = f"{type(exc).__name__}: {exc}"
+        job["log"].append("Email lookup failed. The existing results and raw CSV were preserved.")
+    finally:
+        job["updated_at"] = _now()
+        if ACTIVE_JOB_ID == job_id:
+            ACTIVE_JOB_ID = None
+
+
+@app.post("/api/jobs/{job_id}/emails", status_code=202)
+async def start_email_lookup(job_id: str) -> dict[str, Any]:
+    global ACTIVE_JOB_ID
+    job = JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Search job not found")
+    if ACTIVE_JOB_ID:
+        raise HTTPException(status_code=409, detail="A collection or email lookup is already running")
+    if job["status"] not in {"completed", "partial"}:
+        raise HTTPException(status_code=409, detail="Fetch raw business data first")
+    if job.get("enrichment_status") == "completed":
+        raise HTTPException(status_code=409, detail="Emails have already been fetched for these results")
+    if not any(str(row.get("website", "")).strip() for row in job.get("results", [])):
+        raise HTTPException(status_code=409, detail="These results have no websites to check")
+    job["enrichment_status"] = "queued"
+    job["enrichment_error"] = None
+    job["updated_at"] = _now()
+    ACTIVE_JOB_ID = job_id
+    task = asyncio.create_task(_execute_email_job(job_id))
+    BACKGROUND_TASKS.add(task)
+    task.add_done_callback(BACKGROUND_TASKS.discard)
+    return {"job_id": job_id, "status": "queued", "operation": "emails"}
+
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard() -> HTMLResponse:
     if not STATIC_FILE.is_file():
@@ -157,7 +185,7 @@ async def dashboard() -> HTMLResponse:
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "app": "Metering Lead Finder"}
+    return {"status": "ok", "app": "Metering Lead Finder", "scraper": "headless-chromium-extension"}
 
 
 @app.post("/api/search", status_code=202)
@@ -165,7 +193,7 @@ async def start_search(request: SearchRequest) -> dict[str, Any]:
     global ACTIVE_JOB_ID
     if ACTIVE_JOB_ID:
         active = JOBS.get(ACTIVE_JOB_ID)
-        if active and active["status"] in {"queued", "running"}:
+        if active and (active["status"] in {"queued", "running"} or active.get("enrichment_status") in {"queued", "running"}):
             raise HTTPException(status_code=409, detail="A Maps search is already running")
         ACTIVE_JOB_ID = None
 
@@ -173,8 +201,10 @@ async def start_search(request: SearchRequest) -> dict[str, Any]:
     JOBS[job_id] = {
         "job_id": job_id,
         "query": request.query,
-        "limit": request.limit,
-        "crawl_websites": request.crawl_websites,
+        "limit": 0,
+        "crawl_websites": False,
+        "enrichment_status": "not_started",
+        "enrichment_error": None,
         "status": "queued",
         "created_at": _now(),
         "updated_at": _now(),
@@ -219,7 +249,7 @@ async def download_csv(job_id: str) -> Response:
     writer.writeheader()
     for row in job.get("results", []):
         writer.writerow({field: row.get(field, "") for field in CSV_FIELDS})
-    filename = (maps_scraper.query_to_filename(job["query"]) or "maps_results") + ".csv"
+    filename = query_to_filename(job["query"]) + ".csv"
     return Response(
         content=stream.getvalue(),
         media_type="text/csv; charset=utf-8",

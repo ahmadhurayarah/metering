@@ -1,0 +1,177 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --background: oklch(0.2679 0.0036 106.6427);
+  --foreground: oklch(0.8074 0.0142 93.0137);
+  --primary: oklch(0.6724 0.1308 38.7559);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.9818 0.0054 95.0986);
+  --secondary-foreground: oklch(0.3085 0.0035 106.6039);
+  --muted: oklch(0.2213 0.0038 106.707);
+  --muted-foreground: oklch(0.7713 0.0169 99.0657);
+  --border: oklch(0.3618 0.0101 106.8928);
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'Inter', sans-serif;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Glassmorphism Header */
+.glass-header {
+    background: color-mix(in srgb, var(--background) 70%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    padding: 16px 32px;
+}
+
+.header-content {
+    max-width: 100%;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.brand h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    color: var(--foreground);
+}
+
+.status-badge {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    color: var(--primary);
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+/* Buttons */
+.actions {
+    display: flex;
+    gap: 12px;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    outline: none;
+}
+
+.btn-secondary {
+    background-color: var(--muted);
+    color: var(--foreground);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    background-color: color-mix(in srgb, var(--muted) 80%, white);
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: var(--primary-foreground);
+}
+
+.btn-primary:hover {
+    background: color-mix(in srgb, var(--primary) 90%, black);
+}
+
+/* Main Content area */
+.main-content {
+    flex: 1;
+    padding: 24px 32px;
+    max-width: 100%;
+    width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+.glass-panel {
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+/* OVERRIDE TABULATOR TO MATCH DARK MODE */
+.tabulator {
+    background-color: transparent !important;
+    border: none !important;
+    font-family: 'Inter', sans-serif !important;
+}
+
+.tabulator-header {
+    background-color: var(--background) !important;
+    border-bottom: 1px solid var(--border) !important;
+    color: var(--muted-foreground) !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+}
+
+.tabulator-col {
+    background-color: transparent !important;
+    border-right: 1px solid var(--border) !important;
+}
+
+.tabulator-row {
+    background-color: transparent !important;
+    border-bottom: 1px solid var(--border) !important;
+    color: var(--foreground) !important;
+    transition: background-color 0.2s ease;
+}
+
+.tabulator-row:hover {
+    background-color: color-mix(in srgb, var(--muted) 80%, white) !important;
+}
+
+.tabulator-row.tabulator-row-even {
+    background-color: color-mix(in srgb, var(--muted) 50%, transparent) !important;
+}
+
+.tabulator-cell {
+    border-right: 1px solid var(--border) !important;
+    padding: 12px 8px !important;
+}
+
+.tabulator-footer {
+    background-color: var(--background) !important;
+    border-top: 1px solid var(--border) !important;
+    color: var(--muted-foreground) !important;
+}
