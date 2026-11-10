@@ -1,133 +1,154 @@
 # Task 3: Research Approach and Validation
 
 **Berlin property-management prospects for a metering service provider**  
-**Version:** 0.1 — Draft for review
+**Version:** 0.2 - Draft for review
 
-This working draft describes the collection and website-contact automation implemented so far, and the proposed qualification method. It is not a final report of validated companies, completed KPI research, or verified decision-maker contacts.
+This draft describes the implemented collection, email-lookup, Maps-based KPI screening and Excel-export workflow. It distinguishes a provisional candidate shortlist from verified customer suitability. It is not a final report of validated companies or verified decision-maker contacts. This Markdown file is the editable source for the accompanying Word draft.
 
 ## 1. Objective and current position
 
-The objective is to identify Berlin property management companies, explain which could be suitable customers for a metering service provider, and retain evidence for the qualification decisions.
+The objective is to identify potential Berlin property-management customers, retain the source listing data, explain screening decisions and document the additional evidence needed before outreach.
 
 | Deliverable | Current position |
 | --- | --- |
-| Task 1: Company collection and spreadsheet-compatible download | Complete for the agreed collection/export stage. The dashboard collects Maps listings and downloads CSV files that open in Excel. This does not establish exhaustive Berlin coverage or verify every listing's relevance. |
-| Task 2: Qualifying KPI columns and company assessments | Proposed; not implemented or populated yet. Service-specific criteria and the research method need agreement. |
-| Bonus: Relevant named contact and direct work email | Not completed. Extracted website emails are candidates, not verified personal decision-maker contacts. |
-| Task 3: Approach document | This editable draft, to be finalized after qualification and validation are completed. |
+| Task 1: Company collection and spreadsheet-compatible download | The agreed Maps collection and CSV-export milestone is complete. Raw exports remain preserved. The staged final download now has a native Excel workbook exporter implemented. Collection does not establish exhaustive Berlin coverage. |
+| Task 2: KPI criteria and company screening | An explicit Run KPI action is implemented after the email stage. It applies transparent Maps-category rules and adds status, rationale and supporting KPI fields. It does not automatically qualify records during collection or email lookup. Service-specific research remains future work. |
+| Bonus: Relevant named contact and direct work email | Not completed. Extracted public website emails are candidates, not verified personal decision-maker contacts. |
+| Task 3: Approach document | This updated Markdown draft and its editable Word counterpart. Finalization depends on actual research validation and review. |
 
-## 2. Sources and their roles
+## 2. Sources and evidence boundaries
 
-**Google Maps — candidate discovery.** Search queries identify possible property managers and provide listing details such as name, address, phone, website, category, review information, and Maps identifiers or links where available. These are discovery records, not independent proof of portfolio size, current business activity, or buying interest.
+**Google Maps - discovery and initial screening.** Listings can provide name, category, address, phone, website, ratings, review counts and stable identifiers. These fields support a category-based shortlist. They do not independently establish managed units, current operating scale, metering needs, buying intent or purchasing authority.
 
-**Maps-linked business websites — optional contact extraction.** A separate action checks the listed website and linked contact/about-related pages for public email addresses and social links. A website attached to a Maps listing can be incorrect or belong to a different branch; company identity still requires review.
+**Search context - not geographic proof.** A business returned for a Berlin query is labelled as having Berlin search context. A street-only address or a street named Berliner Straße does not establish a Berlin office or managed-property coverage. A Maps address that explicitly states Berlin is a stronger listing signal, but still does not prove that the business manages properties there.
 
-**Official company evidence — planned for Task 2.** Services, portfolio, About, legal-notice and relevant announcement pages will support Berlin relevance, management type, published portfolio scale, and service-fit findings. Reliable industry sources can help resolve gaps, but their origin and age must be labelled. LinkedIn or similar professional pages may support the optional contact research. These additional research steps have not yet been completed.
+**Maps-linked websites - contact extraction.** The extension checks public website content for email addresses and social links. A listing's website can be an advertisement, tracking URL, outdated link or wrong-branch website. A listed link is not automatically verified as the official company website.
 
-## 3. Automation implemented
+**Official company sources - deeper research still required.** Company services, portfolio, legal-notice, About and announcement pages should support final claims about identity, management type, portfolio scale, Berlin coverage and metering relevance. Professional profiles may support a published named contact. These facts must not be inferred from the Maps category alone.
+
+## 3. Explicit four-stage workflow
 
 ```text
-Search query in the dashboard
-        |
-        v
-FastAPI -> Playwright -> full Chromium + bundled extension
-        |
-        v
-Extension collects Google Maps business records
-        |
-        v
-Results table + preserved raw CSV
-        |
-        +-- Optional: Get emails
-        |       |
-        |       v
-        |   Extension checks websites and contact pages sequentially
-        |       |
-        |       v
-        |   Live activity + updated rows + separate email-enriched CSV
-        |
-        +-- Next: evidence research and qualification (Task 2, proposed)
+Fetch raw data
+    |
+    v
+Get emails
+    |
+    v
+Run KPI
+    |
+    v
+Download Excel (.xlsx)
 ```
 
-### Raw business collection
+Each action starts only when selected. Run KPI requires a finished email-processing stage; the final Excel download requires completed KPI screening. These gates are enforced by the backend as well as the interface.
 
-The researcher enters a query and selects **Fetch raw data**. Python launches Chromium with a project-local copy of the scraping extension, operates its controls, and receives its exported records. The extension performs Maps collection; Python does not replace it with a separate direct scraper.
+### Stage 1: Fetch raw data
 
-The dashboard uses no numeric listing cap. The implemented list-collection logic continues through idle pauses and limited-view notices, collects across scrolling, and waits for the extension's explicit completion signal for the same run. The rendered end-of-list message is required for an end-of-list outcome. Single-place and explicit no-results pages are separate terminal outcomes.
+FastAPI launches full Chromium through Playwright, loads the project-local scraping extension and operates its controls. The extension collects Maps records; Python does not replace it with a separate website or Maps crawler.
 
-Consent or verification boundaries, errors, manual stops, or the two-hour orchestration safety budget can interrupt collection. Available rows are retained as partial results where possible. Limited-view coverage remains recorded internally even if the exposed list ends. An available download or observed end marker does not prove that Google exposed every relevant business.
+Collection has no numeric listing cap. The implemented scrolling logic continues through temporary idle periods and limited-view notices, and waits for the extension's explicit completion signal. List completion requires the exposed end-of-list marker. Single-place and explicit no-results pages have separate outcomes.
 
-Raw collection does not perform website-email lookup. Available Maps fields are saved locally as a raw export, or a partial export when collection is interrupted.
+Verification boundaries, errors, manual stops or the orchestration safety budget can interrupt collection. Available rows are retained as partial results where possible. An exposed-list end marker or successful export does not guarantee exhaustive coverage. Raw collection does not visit business websites for email harvesting.
 
-### Separate website-email lookup
+### Stage 2: Get emails
 
-The researcher selects **Get emails** for existing results. This does not rerun Maps collection. The extension's background worker fetches and parses public website content, processing one business and one contact page at a time. Python relays the extension's events and merges the returned fields.
+The extension's background worker processes one business at a time and one website/contact page at a time. Python relays events, merges returned contact fields and checkpoints completed businesses into a separate email-stage CSV. The original raw export is not overwritten.
 
-The implementation reports the business being checked, actual page-request URLs, fetching/extraction activity, skips and errors. These are service-worker HTTP requests, not simulated browser-tab navigation. The dashboard polls during lookup and updates the table and a separate CSV after each business finishes. Subsequent CSV checkpoints use atomic replacement; the raw export is not overwritten.
+The Email cell shows the actual lookup state, including an animated Fetching indicator for the active lookup. Existing email values remain visible. Missing websites, checked pages with no email found, HTTP failures and blocked pages are distinct outcomes. HTTP 403 is a failed or blocked check, not proof that an email does not exist.
 
-Requests have per-page timeouts and a 90-second business safety budget. On that business deadline, outstanding extension requests are aborted and allowed to settle before the next business starts. If settlement fails, the job stops rather than overlapping work. Missing websites, unsuccessful checks, and checked pages with no email found are distinguished.
+The stage can finish with missing emails or incomplete website checks. Finishing means the processing pass ended, not that every website was accessible. If all listings lack websites, an explicit Get emails action records them as skipped without launching a browser. A job-level failure must be resolved or retried before KPI screening can start.
 
-### Tools, configuration and storage
+Requests have page timeouts and a business-level safety deadline. On that deadline, pending requests are aborted and allowed to settle before the next business. If settlement fails, processing stops rather than overlapping work. No email is sent.
 
-- **Interface:** HTML, CSS and JavaScript, with the search form above the results area and recent results in the left sidebar.
-- **Backend:** Python FastAPI, served locally on port 3000.
-- **Browser automation:** Playwright with full Chromium and a bundled browser extension.
-- **Visibility:** `HEADLESS=true` or `HEADLESS=false` in the project configuration controls new browser launches. Visible mode requires a graphical desktop.
-- **Outputs:** Local, collision-safe CSV exports, readable in Excel. There is no native Google Sheets integration or `.xlsx` workbook generator in the current workflow.
-- **State:** Job history and progress are held in memory; CSV files persist on disk. A database and automatic persistent job recovery are not implemented.
-- **AI:** AI assistance has been used to develop the workflow and draft the methodology. An AI-powered company-KPI research/scoring pipeline is proposed, not integrated into the application.
+### Stage 3: Run KPI
 
-## 4. Proposed qualification method — Task 2
+The researcher can inspect the criteria in the results toolbar and then select Run KPI. This local, deterministic operation uses the existing Maps fields and original query. It does not fetch additional websites, rerun Maps, invoke AI research or trigger outreach.
 
-Agree on the provider's exact metering services, relevant property types, Berlin eligibility rule, and any useful portfolio-size thresholds before assigning final ratings.
+The operation preserves every row and its original values, adds the derived KPI fields, and saves a separate qualified CSV. The raw and email-stage files remain available. Rejected records are retained for audit rather than deleted. Missing contacts do not automatically reject an otherwise relevant company.
 
-| Proposed KPI | Evidence to record | Qualification purpose |
+### Stage 4: Download Excel
+
+After KPI screening, Download Excel generates a genuine .xlsx workbook, not a CSV renamed as Excel. It includes:
+
+- **Qualified leads:** all original listing fields and the KPI fields, with filtering and frozen headings/key columns.
+- **KPI criteria:** the applied rules, source query, qualification version/time and interpretation limits.
+
+Accepted rows are green across every data column. Rejected rows are red across every data column. Needs review rows have no status fill. The dashboard uses the same status meanings and full-row coloring. Colors supplement the written status and reason; they do not replace them.
+
+Contact values are exported as literal text rather than spreadsheet formulas. There is no numeric lead score or formula-based buying prediction.
+
+## 4. Maps-only KPI criteria
+
+These rules are provisional candidate-screening rules, not a final sales-qualification rubric.
+
+| Decision | Rule | Interpretation |
 | --- | --- | --- |
-| Berlin property-management relevance | Official evidence that the business manages property in Berlin; distinguish an office address from managed-property evidence | Exclude unrelated businesses and establish geographic relevance |
-| Management/property type | WEG, rental, residential, commercial or mixed management, with a supporting page | Match the company to the provider's actual services |
-| Portfolio scale | Published units or buildings, date and scope; separate Berlin figures from company-wide figures | Understand potential customer scale without inventing numbers |
-| Metering-service relevance | Relevant building operations, heating/water billing or other service evidence | Explain a plausible service match, not assumed demand |
-| Opportunity signals | Dated expansion, new management contracts, modernization or digitization evidence | Prioritize further review without implying buying intent |
-| Lead-fit rating and reason | High, Medium, Low or Needs research, applying agreed rules | Make the assessment understandable and consistent |
-| Evidence confidence | Strong, Partial or Insufficient, with sources and date checked | Separate customer fit from the completeness of public evidence |
+| Accepted - green | The Maps category explicitly indicates property management, including supported English/German property-management category terms, with no conflicting unrelated category signal. | A category-matched candidate worth further research. This is not proof of Berlin coverage, managed units, metering demand or buying interest. |
+| Rejected - red | The Maps category is clearly unrelated to the property-management shortlist, and no conflicting property-management name/category signal exists. | Excluded from this specific shortlist; not a judgment on business quality. The record is retained. |
+| Needs review - neutral | Category is missing, ambiguous, broker-only or adjacent; only the name suggests management; or listing signals conflict. | Do not invent a category or treat missing evidence as a confirmed mismatch. Human review is required. |
 
-Review one company first to confirm that the criteria can be supported by public evidence, then proceed company by company. A future **Qualify leads** action would be separate from email lookup. KPI evidence and the rating would be added to an enriched derivative, leaving the raw collection intact.
+Ratings and review counts do not drive acceptance, rejection, portfolio estimates or buying-fit judgments. Website and phone presence are completeness indicators only. No minimum portfolio threshold or weighted numeric score has been agreed.
 
-Unknown values remain **Unknown**, not zero. Reviews and ratings are not proxies for managed units or buying fit. Missing contact details do not lower the company's underlying fit. Numerical scoring weights are not agreed.
+### Added KPI fields
 
-## 5. Data validation and quality controls
+| Field | Meaning |
+| --- | --- |
+| qualification_status | Accepted, Rejected or Needs review. |
+| qualification_reason | The rule-based rationale, including relevant uncertainty. |
+| property_management_match | Category match, unrelated category, name-only signal, conflicting signals or not established. |
+| berlin_relevance | Address states Berlin, search context only, name signal only or not established. Listing evidence remains unverified. |
+| website_listed | Whether the listing contains a website value; not confirmation of an official or accessible website. |
+| phone_listed | Whether the listing contains a phone value; not ownership or deliverability verification. |
+| portfolio_size | Unknown because Maps does not supply reliable managed-unit/building totals. |
+| metering_service_fit | Unknown pending service-specific evidence and the provider's confirmed offer. |
+| kpi_basis | The provisional Maps-category screening method and version. |
+| kpi_source | The original Maps listing link, where supplied. |
 
-### Implemented controls
+## 5. Tools, configuration and storage
 
-- Raw collection and website-contact extraction are separate operations.
-- One collection or email-lookup job can run at a time.
-- Raw exports are preserved; email enrichment creates a separate derivative and checkpoints completed rows.
-- Collection completion, partial outcomes and errors are distinguished in backend metadata. A hidden summary banner does not change that metadata.
-- Existing identifiers and listing links are retained where supplied by the collector. These support later identity checks but do not establish company-level deduplication across exports.
+- **Interface:** HTML, CSS and JavaScript; search above the workspace, history on the left and the results table on the right.
+- **Backend:** FastAPI on localhost port 3000. The active Python components are app.py, csv_output.py and the bundled extension runner.
+- **Collection and email extraction:** Playwright, full Chromium and the project-local extension. The original extension project is not modified.
+- **Visibility:** HEADLESS=true or HEADLESS=false controls new browser launches. Visible mode requires a graphical desktop.
+- **Exports:** CSV source/checkpoint files and an openpyxl-generated Excel workbook. There is no native Google Sheets integration.
+- **Documents:** This Markdown master is converted to an editable Word draft using structured headings, paragraphs and tables.
+- **State:** Jobs and workflow state are in memory. CSV files persist on disk. Manual history snapshots can preserve state during planned restarts; automatic database-backed recovery is not implemented.
+- **AI boundary:** AI assistance supports development and document drafting. The current KPI action is rule-based, not an integrated AI company-research agent.
 
-### Validation still required for the research deliverable
+## 6. Validation still required
 
-1. **Confirm identity and Berlin relevance.** Match the listing to the official company using its name, legal notice, address, phone and website. Distinguish property managers from brokers, groups from branches, and similarly named businesses.
-2. **Resolve duplicate companies.** Use place identifiers as clues and official identity evidence to reconcile multiple searches or branches. Preserve the original exports; do not merge on company name alone.
-3. **Support every material KPI.** Record the value, specific source page, short supporting passage or note, date checked, and any scope or uncertainty. The current raw CSV does not yet contain this per-KPI evidence ledger.
-4. **Review extracted contacts.** Confirm that an email belongs to the correct company and has an appropriate published purpose. Reject placeholders and wrong-branch or unrelated matches. Extraction is not deliverability verification.
-5. **Verify the bonus contact separately.** Record a relevant person's published role and direct professional email or profile. A generic inbox does not satisfy the personal-contact bonus. Never guess an email pattern.
-6. **Review the final ratings.** Check that each decision follows the agreed rubric and that missing evidence has not been treated as negative evidence.
+1. **Confirm company identity.** Match the listing against the official company, legal notice and contact details; distinguish brokers, managers, branches and similarly named businesses.
+2. **Verify Berlin relevance.** Establish the relevant office or managed-property coverage from appropriate evidence, not the search query alone.
+3. **Resolve duplicates carefully.** Use stable identifiers and official identity evidence. A shared name or website does not automatically justify merging branches or companies.
+4. **Support material KPIs.** Record the specific source page, supporting statement, date and scope for management type, portfolio scale and service relevance.
+5. **Review contacts.** Confirm the correct company/branch and the published purpose of an email. Extraction does not verify deliverability or decision-maker authority.
+6. **Review final decisions.** Reassess provisional category acceptance against the provider's actual services and agreed eligibility rules. A green row is not a validated customer endorsement.
 
-These research-validation steps are planned, not claims that every collected record has already been checked.
+The controls and new staged KPI/Excel workflow are implemented in source. Application startup and history restoration were checked, but the new KPI action and Excel download have not been exercised under the current application-testing deferral. No new collection, website-email lookup or KPI run was started to prepare this revision. Document conversion is separate from application verification.
 
-## 6. Limits, review status and finalization
+## 7. Future work
 
-Google Maps results depend on the query and what the site exposes. An end-of-exposed-list outcome is not a guarantee of comprehensive city coverage. Websites may be inaccessible, outdated, dynamically rendered or incorrectly linked. Publicly available evidence may not disclose portfolio size, an incumbent metering provider or purchasing authority. None of those facts should be inferred without support.
+### Provider-blocked public websites
 
-The recent collector-completion and live email-progress changes are implemented in source, but their latest end-to-end behavior has not yet been exercised under the current testing deferral. Application startup, an exported file, and extracted contact text are not substitutes for record validation. No new tests, collection, email lookup or company research were performed to prepare this draft.
+Improve access handling for public pages protected or intercepted by Cloudflare and other website-security providers. First identify the actual response/challenge provider rather than attributing every HTTP 403 to Cloudflare. The cloudflared tunnel client and a website's Cloudflare protection are different components.
 
-Before issuing the final methodology document:
+Investigate normal browser-backed rendering for public pages when permitted, with sequential processing, bounded timeouts and truthful outcomes. Where automated access is not permitted or remains challenged, use owner-approved allowlisting, an official API/feed, permission-based access or manual review. Keep Blocked distinct from No email found and retain the reason and source URL.
 
-- Confirm the qualification rules and complete the agreed company research.
-- Retain the actual queries, research period, source/evidence ledger, and relevant collection outcomes.
-- Summarize the real final dataset, duplicate resolution, unknown fields and validation findings; do not invent coverage or quality figures.
-- State precisely which automation was exercised, what was manually reviewed, and what remains uncertain.
-- Review the wording and choose the final shareable document or presentation format.
+This is planned work, not a claim that a bypass exists. No authentication, CAPTCHA or access-control bypass is implemented or promised, and protected content must not be treated as accessible merely because a fallback is planned.
 
-No outreach is sent by this workflow. Contact discovery and qualification do not authorize contacting prospects. No consent or verification bypass is part of the method.
+### Further qualification and reliability improvements
+
+- Confirm the provider's exact metering services, target property types, geographic eligibility and any meaningful portfolio-size requirements before adding deeper fit rules.
+- Add official-source research for management type, published portfolio, relevant building operations and dated opportunity signals, with evidence and uncertainty recorded separately.
+- Persist per-business lookup outcomes, blocked-page reasons and evidence timestamps beyond the recent in-memory event window.
+- Add durable job history, interruption recovery, explicit retry controls and versioned qualification rules.
+- Improve identity/branch matching and company-level deduplication without silently discarding original records.
+- Research relevant named professional contacts only from published, attributable sources; never infer personal email patterns.
+- Validate the staged workflow and workbook output when application testing is authorized, then review the actual dataset before finalizing the methodology.
+
+## 8. Limits and finalization
+
+Maps coverage depends on the query and what the site exposes. Websites may be blocked, outdated, dynamic or incorrectly linked. Public evidence may not disclose portfolio scale, an incumbent metering provider, commercial intent or purchasing authority. Unknown values remain Unknown, not zero.
+
+Before issuing a final report, retain the actual queries and research period, review the company/evidence ledger, document duplicate resolution and unresolved gaps, and state precisely which automation was exercised and which records were manually validated. This remains a draft for review. Contact discovery and screening do not authorize outreach.
