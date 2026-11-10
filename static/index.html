@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1324">
+  <title>Metering Lead Finder</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1324;
+      --panel: #111c31;
+      --panel-soft: #15223a;
+      --line: #263650;
+      --text: #edf3fc;
+      --muted: #94a5bf;
+      --accent: #75e0b0;
+      --accent-strong: #28bc83;
+      --blue: #9ac8ff;
+      --danger: #ff9e9e;
+      --warning: #ffd28a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: radial-gradient(ellipse at 10% -10%, #162747 0, transparent 42%), var(--bg);
+      color: var(--text);
+      font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    a { color: var(--blue); }
+    .shell { width: min(1480px, calc(100% - 40px)); margin: 0 auto; padding: 25px 0 48px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 36px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 13px; color: #062218; background: var(--accent); font-weight: 900; font-size: 19px; }
+    .brand-name { font-size: 15px; font-weight: 750; letter-spacing: .01em; }
+    .brand-caption { color: var(--muted); font-size: 12px; margin-top: 1px; }
+    .mode-pill { padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: #bfcee3; background: #0e192b; font-size: 12px; white-space: nowrap; }
+    .intro { max-width: 790px; margin: 0 0 27px; }
+    .eyebrow { color: var(--accent); font-weight: 750; letter-spacing: .12em; font-size: 11px; text-transform: uppercase; }
+    h1 { margin: 8px 0 8px; font-size: clamp(27px, 4vw, 40px); line-height: 1.12; letter-spacing: -.035em; }
+    .intro p { color: var(--muted); margin: 0; font-size: 15px; }
+    .layout { display: grid; grid-template-columns: minmax(275px, 350px) minmax(0, 1fr); align-items: start; gap: 18px; }
+    .card { border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 94%, transparent); border-radius: 16px; box-shadow: 0 16px 45px #02071140; }
+    .search-card { padding: 20px; }
+    .card-title { margin: 0; font-size: 16px; letter-spacing: -.01em; }
+    .card-subtitle { margin: 5px 0 18px; color: var(--muted); font-size: 12px; }
+    label { display: block; margin: 14px 0 6px; color: #cad7e8; font-size: 12px; font-weight: 650; }
+    input[type="text"], input[type="number"] {
+      width: 100%; border: 1px solid #30415d; border-radius: 9px; background: #0c1628; color: var(--text);
+      padding: 11px 12px; font: inherit; outline: none;
+    }
+    input:focus { border-color: #62d6a3; box-shadow: 0 0 0 3px #43bb8c22; }
+    .query-hint { color: #8092ad; font-size: 11px; margin: 6px 0 0; }
+    .check-row { display: flex; align-items: flex-start; gap: 9px; margin: 17px 0 4px; color: #d9e3f0; font-size: 12px; }
+    .check-row input { margin: 3px 0 0; accent-color: var(--accent-strong); }
+    .check-row small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; margin-top: 2px; }
+    .primary-btn { width: 100%; min-height: 44px; margin-top: 18px; border: 0; border-radius: 10px; color: #052317; background: var(--accent); font: inherit; font-weight: 800; cursor: pointer; transition: .15s ease; }
+    .primary-btn:hover:not(:disabled) { background: #a0f0cb; transform: translateY(-1px); }
+    .primary-btn:disabled { opacity: .55; cursor: wait; }
+    .fine-print { color: #8495ae; font-size: 11px; line-height: 1.55; margin: 13px 1px 0; }
+    .side-section { margin-top: 14px; padding: 17px 18px; }
+    .side-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .side-heading h2 { margin: 0; font-size: 13px; }
+    .refresh-btn { border: 0; background: none; color: var(--blue); font: inherit; font-size: 11px; cursor: pointer; }
+    .history { display: grid; gap: 7px; margin-top: 12px; }
+    .history-item { width: 100%; padding: 9px 10px; border: 1px solid transparent; border-radius: 9px; background: #0d1728; color: var(--text); text-align: left; cursor: pointer; }
+    .history-item:hover, .history-item.active { border-color: #37506f; background: var(--panel-soft); }
+    .history-query { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 650; }
+    .history-meta { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 10px; margin-top: 3px; }
+    .empty-history { color: var(--muted); font-size: 12px; margin: 0; }
+    .workspace { min-width: 0; overflow: hidden; }
+    .status-card { padding: 18px 20px; margin-bottom: 14px; }
+    .status-line { display: flex; align-items: center; gap: 10px; }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #53627a; box-shadow: 0 0 0 4px #53627a20; flex: none; }
+    .status-dot.running { background: #69d9a2; box-shadow: 0 0 0 4px #69d9a225; animation: pulse 1.3s infinite; }
+    .status-dot.completed { background: #69d9a2; box-shadow: 0 0 0 4px #69d9a225; }
+    .status-dot.partial { background: #ffc875; box-shadow: 0 0 0 4px #ffc87522; }
+    .status-dot.failed { background: #ff8181; box-shadow: 0 0 0 4px #ff818122; }
+    @keyframes pulse { 50% { opacity: .45; } }
+    .status-title { font-size: 13px; font-weight: 750; }
+    .status-detail { color: var(--muted); font-size: 12px; margin: 3px 0 0 19px; overflow-wrap: anywhere; }
+    .alert { margin-top: 12px; padding: 10px 12px; border-radius: 9px; color: var(--warning); background: #3a2b173b; border: 1px solid #6b4a273d; font-size: 12px; }
+    .alert.error { color: var(--danger); background: #3a17173b; border-color: #6b27273d; }
+    .results-card { overflow: hidden; }
+    .results-head { padding: 18px 20px 13px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+    .results-head h2 { margin: 0; font-size: 16px; }
+    .results-subtitle { color: var(--muted); margin-top: 4px; font-size: 11px; }
+    .stats { display: flex; gap: 8px; }
+    .stat { min-width: 94px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #0c1728; }
+    .stat strong { display: block; font-size: 16px; line-height: 1.2; }
+    .stat span { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
+    .table-tools { display: flex; align-items: center; gap: 9px; padding: 0 20px 13px; }
+    .filter-input { max-width: 340px; padding: 8px 10px !important; font-size: 12px !important; }
+    .download-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 35px; padding: 0 12px; border: 1px solid #37536f; border-radius: 8px; background: #14233a; color: #cfe5ff; text-decoration: none; font-size: 11px; font-weight: 700; }
+    .download-btn[aria-disabled="true"] { opacity: .42; pointer-events: none; }
+    .showing-count { margin-left: auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .table-scroll { width: 100%; overflow: auto; max-height: min(66vh, 720px); border-top: 1px solid var(--line); scrollbar-color: #33445f #0c1628; }
+    table { border-collapse: separate; border-spacing: 0; min-width: 100%; width: max-content; font-size: 11px; }
+    th, td { max-width: 270px; min-width: 110px; padding: 9px 11px; border-right: 1px solid #23334b; border-bottom: 1px solid #23334b; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+    th { position: sticky; top: 0; z-index: 2; background: #15223a; color: #b9c9df; font-size: 10px; font-weight: 750; white-space: nowrap; }
+    td { color: #d5dfec; }
+    td.email-cell { color: var(--accent); font-weight: 650; }
+    td a { display: inline-block; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    tbody tr:hover td { background: #17253a; }
+    .table-empty { padding: 36px 20px; color: var(--muted); text-align: center; font-size: 13px; }
+    .footer-note { color: #788aa4; font-size: 10px; padding: 11px 20px 14px; border-top: 1px solid #1e2d44; }
+    @media (max-width: 850px) {
+      .shell { width: min(100% - 24px, 720px); padding-top: 16px; }
+      .topbar { margin-bottom: 28px; }
+      .layout { grid-template-columns: 1fr; }
+      .side-section { margin-top: 12px; }
+      .results-head { padding: 15px 14px 12px; }
+      .table-tools { padding: 0 14px 12px; flex-wrap: wrap; }
+      .showing-count { margin-left: 0; }
+      .stats { width: 100%; }
+      .stat { flex: 1; }
+      .status-card { padding: 15px; }
+    }
+    @media (max-width: 480px) {
+      .shell { width: calc(100% - 18px); }
+      .mode-pill { display: none; }
+      .stats { gap: 5px; }
+      .stat { min-width: 0; padding: 7px; }
+      .filter-input { max-width: none; flex: 1 1 100%; }
+      .download-btn { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">M</div>
+        <div><div class="brand-name">Metering Lead Finder</div><div class="brand-caption">Berlin property-management research</div></div>
+      </div>
+      <div class="mode-pill">FastAPI dashboard · standalone Playwright scraper</div>
+    </header>
+
+    <section class="intro">
+      <div class="eyebrow">Prospect discovery</div>
+      <h1>Find property managers.<br>Review the evidence.</h1>
+      <p>Run a Google Maps query, collect business listings, and view public website emails alongside the full scraper output.</p>
+    </section>
+
+    <div class="layout">
+      <aside>
+        <section class="card search-card">
+          <h2 class="card-title">Start a Google Maps search</h2>
+          <p class="card-subtitle">The collector runs locally in the backend. No LangChain or search API key is used.</p>
+          <form id="search-form">
+            <label for="query">Search query</label>
+            <input id="query" name="query" type="text" maxlength="200" required value="Hausverwaltung Berlin" autocomplete="off" placeholder="e.g. WEG-Verwaltung Berlin">
+            <p class="query-hint">Try: Hausverwaltung, WEG-Verwaltung, or Mietverwaltung + a Berlin district.</p>
+
+            <label for="limit">Maximum listings to collect</label>
+            <input id="limit" name="limit" type="number" min="1" max="999" value="999" required>
+            <p class="query-hint">999 is a ceiling, not a promise that Google Maps will expose 999 results.</p>
+
+            <label class="check-row" for="crawl-websites">
+              <input id="crawl-websites" name="crawl_websites" type="checkbox" checked>
+              <span>Look for public emails on listed websites<small>Slower. Email results are unverified and may include false matches.</small></span>
+            </label>
+            <button id="submit-button" class="primary-btn" type="submit">Run search</button>
+          </form>
+          <p class="fine-print">Google Maps may limit or change results. The collector stops at verification challenges and does not try to bypass them. No emails are sent.</p>
+        </section>
+
+        <section class="card side-section">
+          <div class="side-heading"><h2>Recent searches</h2><button id="refresh-history" class="refresh-btn" type="button">Refresh</button></div>
+          <div id="history" class="history"><p class="empty-history">No searches yet.</p></div>
+        </section>
+      </aside>
+
+      <section class="workspace" aria-label="Search results">
+        <div id="status-card" class="card status-card" aria-live="polite">
+          <div class="status-line"><span id="status-dot" class="status-dot"></span><span id="status-title" class="status-title">Ready when you are</span></div>
+          <div id="status-detail" class="status-detail">Enter a query to start a new local search.</div>
+          <div id="status-alert" class="alert" hidden></div>
+        </div>
+
+        <div class="card results-card">
+          <div class="results-head">
+            <div><h2 id="results-title">Scraper results</h2><div id="results-subtitle" class="results-subtitle">All fields from the selected search will appear here.</div></div>
+            <div class="stats" aria-label="Result summary">
+              <div class="stat"><strong id="total-count">0</strong><span>Listings</span></div>
+              <div class="stat"><strong id="email-count">0</strong><span>With email</span></div>
+              <div class="stat"><strong id="website-count">0</strong><span>With website</span></div>
+            </div>
+          </div>
+          <div class="table-tools">
+            <input id="filter" class="filter-input" type="text" placeholder="Filter visible results…" aria-label="Filter results" disabled>
+            <a id="download" class="download-btn" href="#" aria-disabled="true">Download CSV</a>
+            <span id="showing-count" class="showing-count">No rows</span>
+          </div>
+          <div id="table-container" class="table-scroll">
+            <div class="table-empty">Run a search to populate the results table.</div>
+          </div>
+          <div class="footer-note">Email addresses are collected from public website content where available. They are not confirmed as decision-maker contacts.</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const state = { currentJob: null, currentJobData: null, pollTimer: null, history: [] };
+    const form = document.getElementById('search-form');
+    const submitButton = document.getElementById('submit-button');
+    const statusDot = document.getElementById('status-dot');
+    const statusTitle = document.getElementById('status-title');
+    const statusDetail = document.getElementById('status-detail');
+    const statusAlert = document.getElementById('status-alert');
+    const tableContainer = document.getElementById('table-container');
+    const filterInput = document.getElementById('filter');
+    const downloadLink = document.getElementById('download');
+
+    function setStatus(status, title, detail, message = '', isError = false) {
+      statusDot.className = 'status-dot' + (status ? ' ' + status : '');
+      statusTitle.textContent = title;
+      statusDetail.textContent = detail || '';
+      statusAlert.hidden = !message;
+      statusAlert.textContent = message;
+      statusAlert.className = 'alert' + (isError ? ' error' : '');
+    }
+
+    function friendlyStatus(status) {
+      return ({queued: 'Queued', running: 'Searching', completed: 'Complete', partial: 'Partial results', failed: 'Failed'})[status] || status;
+    }
+
+    async function requestJson(url, options) {
+      const response = await fetch(url, options);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Request failed');
+      return data;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      submitButton.disabled = true;
+      statusAlert.hidden = true;
+      try {
+        const payload = {
+          query: document.getElementById('query').value,
+          limit: Number(document.getElementById('limit').value),
+          crawl_websites: document.getElementById('crawl-websites').checked
+        };
+        const job = await requestJson('/api/search', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        state.currentJob = job.job_id;
+        await pollJob(job.job_id);
+      } catch (error) {
+        setStatus('failed', 'Could not start search', 'Check the query and try again.', error.message, true);
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    async function pollJob(jobId) {
+      if (state.pollTimer) clearTimeout(state.pollTimer);
+      try {
+        const job = await requestJson('/api/jobs/' + encodeURIComponent(jobId));
+        renderJob(job);
+        await loadHistory();
+        if (job.status === 'queued' || job.status === 'running') {
+          submitButton.disabled = true;
+          state.pollTimer = setTimeout(() => pollJob(jobId), 1400);
+        } else {
+          submitButton.disabled = false;
+        }
+      } catch (error) {
+        submitButton.disabled = false;
+        setStatus('failed', 'Could not load search status', 'The server may have restarted.', error.message, true);
+      }
+    }
+
+    function renderJob(job) {
+      const jobChanged = state.currentJob !== job.job_id;
+      state.currentJob = job.job_id;
+      state.currentJobData = job;
+      const label = friendlyStatus(job.status);
+      const detail = `${job.query} · ${job.result_count} listing(s) · ${job.email_count} listing(s) with an extracted email`;
+      let message = job.warning || job.error || '';
+      setStatus(job.status, label, detail, message, job.status === 'failed');
+      document.getElementById('results-title').textContent = 'Results: ' + job.query;
+      document.getElementById('results-subtitle').textContent = job.output_file ? 'Saved locally as ' + job.output_file : 'Search results from the standalone Maps collector.';
+      document.getElementById('total-count').textContent = job.result_count;
+      document.getElementById('email-count').textContent = job.email_count;
+      document.getElementById('website-count').textContent = (job.results || []).filter(row => String(row.website || '').trim()).length;
+      downloadLink.href = job.download_url;
+      downloadLink.setAttribute('aria-disabled', job.status === 'completed' || job.status === 'partial' ? 'false' : 'true');
+      filterInput.disabled = !(job.results && job.results.length);
+      if (jobChanged) filterInput.value = '';
+      renderTable(job.fields || [], job.results || []);
+      renderHistoryActive(job.job_id);
+    }
+
+    function prettyField(field) {
+      return field.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+    }
+
+    function safeLinkValue(field, rawValue) {
+      const value = String(rawValue || '').trim();
+      if (!value || field === 'email') return null;
+      if (!['website', 'maps_url', 'instagram', 'facebook', 'twitter', 'linkedin', 'tiktok', 'yelp', 'youtube'].includes(field)) return null;
+      try {
+        const url = new URL(value);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+        return url.href;
+      } catch (_) { return null; }
+    }
+
+    function renderTable(fields, rows) {
+      tableContainer.replaceChildren();
+      if (!rows.length) {
+        const empty = document.createElement('div');
+        empty.className = 'table-empty';
+        empty.textContent = state.currentJob ? 'No listings were returned for this search.' : 'Run a search to populate the results table.';
+        tableContainer.appendChild(empty);
+        document.getElementById('showing-count').textContent = 'No rows';
+        return;
+      }
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      for (const field of fields) {
+        const th = document.createElement('th');
+        th.scope = 'col';
+        th.textContent = prettyField(field);
+        headRow.appendChild(th);
+      }
+      thead.appendChild(headRow);
+      const tbody = document.createElement('tbody');
+      const filter = filterInput.value.trim().toLowerCase();
+      let shown = 0;
+      for (const row of rows) {
+        if (filter && !fields.some(field => String(row[field] ?? '').toLowerCase().includes(filter))) continue;
+        shown++;
+        const tr = document.createElement('tr');
+        for (const field of fields) {
+          const td = document.createElement('td');
+          const value = String(row[field] ?? '');
+          if (field === 'email' || field === 'additional_emails') td.classList.add('email-cell');
+          const safeUrl = safeLinkValue(field, value);
+          if (safeUrl) {
+            const link = document.createElement('a');
+            link.href = safeUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = value;
+            td.appendChild(link);
+          } else {
+            td.textContent = value;
+          }
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      table.append(thead, tbody);
+      tableContainer.appendChild(table);
+      document.getElementById('showing-count').textContent = `Showing ${shown} of ${rows.length}`;
+    }
+
+    filterInput.addEventListener('input', () => {
+      if (!state.currentJobData) return;
+      renderTable(state.currentJobData.fields || [], state.currentJobData.results || []);
+    });
+
+    async function loadHistory() {
+      try {
+        const data = await requestJson('/api/jobs');
+        state.history = data.jobs || [];
+        renderHistory();
+      } catch (_) {
+        // Keep the current result visible if history refresh fails.
+      }
+    }
+
+    function renderHistoryActive(jobId) {
+      document.querySelectorAll('.history-item').forEach(button => {
+        button.classList.toggle('active', button.dataset.jobId === jobId);
+      });
+    }
+
+    function renderHistory() {
+      const holder = document.getElementById('history');
+      holder.replaceChildren();
+      if (!state.history.length) {
+        const empty = document.createElement('p');
+        empty.className = 'empty-history';
+        empty.textContent = 'No searches yet.';
+        holder.appendChild(empty);
+        return;
+      }
+      for (const job of state.history) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'history-item' + (job.job_id === state.currentJob ? ' active' : '');
+        button.dataset.jobId = job.job_id;
+        const query = document.createElement('span');
+        query.className = 'history-query';
+        query.textContent = job.query;
+        const meta = document.createElement('span');
+        meta.className = 'history-meta';
+        const status = document.createElement('span');
+        status.textContent = friendlyStatus(job.status);
+        const count = document.createElement('span');
+        count.textContent = `${job.result_count} · ${job.email_count} emails`;
+        meta.append(status, count);
+        button.append(query, meta);
+        button.addEventListener('click', () => pollJob(job.job_id));
+        holder.appendChild(button);
+      }
+    }
+
+    document.getElementById('refresh-history').addEventListener('click', loadHistory);
+    loadHistory();
+  </script>
+</body>
+</html>
