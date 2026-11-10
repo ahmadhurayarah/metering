@@ -309,8 +309,7 @@ async def scrape_google_maps(query: str, limit: int = 0, output_dir: str | None 
 
     if not os.path.isdir(EXTENSION_PATH):
         raise FileNotFoundError(
-            f"Chrome extension not found at {EXTENSION_PATH}. "
-            f"Clone it with: gh repo clone ahmadhurayarah/scrape-extension {EXTENSION_PATH}"
+            f"Chrome extension not found at {EXTENSION_PATH}."
         )
 
     profile = tempfile.TemporaryDirectory(prefix="metering-maps-extension-")

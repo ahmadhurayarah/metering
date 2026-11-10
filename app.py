@@ -4,6 +4,7 @@ import asyncio
 import csv
 import io
 import re
+import shutil
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -74,17 +75,53 @@ BERLIN_ADDRESS = re.compile(
 )
 
 
-def qualify_maps_row(row: dict[str, Any], query: str) -> dict[str, Any]:
-    """Provisional category screening, not verified service, scale or buying fit."""
+def _parse_float(val: Any) -> float:
+    try:
+        if val is None or val == "":
+            return 0.0
+        return float(str(val).replace(",", ".").strip())
+    except Exception:
+        return 0.0
+
+
+def _parse_int(val: Any) -> int:
+    try:
+        if val is None or val == "":
+            return 0
+        cleaned = re.sub(r"[^\d]", "", str(val))
+        return int(cleaned) if cleaned else 0
+    except Exception:
+        return 0
+
+
+class KpiThresholds(BaseModel):
+    min_rating: float = Field(default=3.0, ge=0.0, le=5.0)
+    min_reviews: int = Field(default=10, ge=0)
+    require_website: bool = True
+    require_phone: bool = False
+    require_email: bool = True
+    strict_berlin: bool = True
+    accept_name_match: bool = True
+
+
+def qualify_maps_row(row: dict[str, Any], query: str, thresholds: KpiThresholds | None = None) -> dict[str, Any]:
+    """Provisional category screening and configurable threshold rules."""
+    thresholds = thresholds or KpiThresholds()
     category = str(row.get("category") or "").strip()
     name = str(row.get("name") or "").strip()
     address = str(row.get("address") or "").strip()
+    website = str(row.get("website") or "").strip()
+    phone = str(row.get("phone") or "").strip()
+    email = str(row.get("email") or "").strip()
+    rating = _parse_float(row.get("rating"))
+    reviews = _parse_int(row.get("reviews"))
+
     category_match = bool(PROPERTY_MANAGEMENT.search(category))
     name_match = bool(PROPERTY_MANAGEMENT.search(name))
     unrelated = bool(UNRELATED_CATEGORY.search(category))
 
-    # A street named Berliner Straße and a Berlin search are not city verification.
-    if BERLIN_ADDRESS.search(address):
+    is_berlin_address = bool(BERLIN_ADDRESS.search(address))
+    if is_berlin_address:
         berlin = "Address states Berlin (Maps)"
         location_note = "The Maps address states Berlin; managed-property coverage is unverified."
     elif re.search(r"\bberlin\b", query, re.IGNORECASE):
@@ -110,9 +147,14 @@ def qualify_maps_row(row: dict[str, Any], query: str) -> dict[str, Any]:
         match = "Unrelated category"
         reason = f"Maps category '{category}' is outside this property-management shortlist; no property-management signal is listed."
     elif name_match:
-        status = "Needs review"
-        match = "Name signal only"
-        reason = "The name suggests property management, but the Maps category does not confirm it."
+        if thresholds.accept_name_match:
+            status = "Accepted"
+            match = "Name match (threshold)"
+            reason = f"Listing name '{name}' identifies property management (accepted via setup threshold). " + location_note
+        else:
+            status = "Needs review"
+            match = "Name signal only"
+            reason = "The name suggests property management, but the Maps category does not confirm it."
     else:
         status = "Needs review"
         match = "Not established"
@@ -120,14 +162,33 @@ def qualify_maps_row(row: dict[str, Any], query: str) -> dict[str, Any]:
                   "brokers and adjacent services require review." if category else
                   "Maps category is missing; the business type cannot be established.")
 
+    if status == "Accepted":
+        failed_thresholds: list[str] = []
+        if thresholds.min_rating > 0.0 and rating < thresholds.min_rating:
+            failed_thresholds.append(f"Rating {rating:.1f} < {thresholds.min_rating:.1f}")
+        if thresholds.min_reviews > 0 and reviews < thresholds.min_reviews:
+            failed_thresholds.append(f"Reviews {reviews} < {thresholds.min_reviews}")
+        if thresholds.require_website and not website:
+            failed_thresholds.append("No website listed")
+        if thresholds.require_phone and not phone:
+            failed_thresholds.append("No phone listed")
+        if thresholds.require_email and not email:
+            failed_thresholds.append("No email found")
+        if thresholds.strict_berlin and not is_berlin_address:
+            failed_thresholds.append("Unverified Berlin address")
+
+        if failed_thresholds:
+            status = "Needs review"
+            reason = f"Category match, but did not meet threshold(s): {', '.join(failed_thresholds)}."
+
     return {
         **row,
         "qualification_status": status,
         "qualification_reason": reason,
         "property_management_match": match,
         "berlin_relevance": berlin,
-        "website_listed": "Yes" if str(row.get("website") or "").strip() else "No",
-        "phone_listed": "Yes" if str(row.get("phone") or "").strip() else "No",
+        "website_listed": "Yes" if website else "No",
+        "phone_listed": "Yes" if phone else "No",
         "portfolio_size": "Unknown - not supplied by Maps",
         "metering_service_fit": "Unknown - needs service-specific research",
         "kpi_basis": "Google Maps category screening v1 - provisional",
@@ -135,9 +196,9 @@ def qualify_maps_row(row: dict[str, Any], query: str) -> dict[str, Any]:
     }
 
 
-def _qualified_rows(job: dict[str, Any]) -> list[dict[str, Any]]:
+def _qualified_rows(job: dict[str, Any], thresholds: KpiThresholds | None = None) -> list[dict[str, Any]]:
     # New dictionaries preserve source fields, row order and stable identifiers.
-    return [qualify_maps_row(row, job["query"]) for row in job.get("results", [])]
+    return [qualify_maps_row(row, job["query"], thresholds) for row in job.get("results", [])]
 
 
 class SearchRequest(BaseModel):
@@ -179,6 +240,7 @@ def _public_job(job: dict[str, Any], include_results: bool) -> dict[str, Any]:
         "fields": RESULT_FIELDS if job.get("kpi_status") == "completed" else CSV_FIELDS,
         "kpi_status": job.get("kpi_status", "not_started"),
         "kpi_version": job.get("kpi_version"),
+        "kpi_thresholds": job.get("kpi_thresholds", {}),
         "kpi_completed_at": job.get("kpi_completed_at"),
         "kpi_csv_path": job.get("kpi_csv_path"),
         "email_csv_path": job.get("email_csv_path"),
@@ -263,18 +325,17 @@ async def _execute_email_job(job_id: str) -> None:
     rows = [dict(row) for row in job["results"]]
     email_path = None
 
-    async def on_progress(event):
-        phase = event.get("phase", "starting")
+    async def _wait_if_paused(next_index: int) -> None:
         resume_event = job.get("_email_resume_event")
-        if phase in {"starting", "business_start"} and resume_event is not None and not resume_event.is_set():
+        if resume_event is not None and not resume_event.is_set():
             job["enrichment_status"] = "paused"
             paused_progress = dict(job.get("enrichment_progress") or {})
             paused_progress.update({
                 "phase": "paused",
-                "current": event.get("current", paused_progress.get("current", 0)),
-                "total": event.get("total", len(rows)),
-                "name": event.get("name", ""),
-                "url": event.get("url", ""),
+                "current": next_index,
+                "total": len(rows),
+                "name": rows[next_index - 1].get("name", "") if 1 <= next_index <= len(rows) else "",
+                "url": rows[next_index - 1].get("website", "") if 1 <= next_index <= len(rows) else "",
                 "message": "Paused between listings",
             })
             job["enrichment_progress"] = paused_progress
@@ -283,6 +344,11 @@ async def _execute_email_job(job_id: str) -> None:
             job["email_pause_requested"] = False
             job["enrichment_status"] = "running"
             job["updated_at"] = _now()
+
+    async def on_progress(event):
+        phase = event.get("phase", "starting")
+        if phase in {"starting", "business_start"}:
+            await _wait_if_paused(int(event.get("current") or 1))
         messages = {
             "starting": "Starting the extension for email lookup",
             "business_start": "Checking website",
@@ -314,6 +380,8 @@ async def _execute_email_job(job_id: str) -> None:
         if phase == "business_done":
             job["log"].append(f"{event['completed']}/{len(rows)} - {event.get('name', '')}: {message}")
         job["updated_at"] = _now()
+        if phase == "business_done" and int(event.get("completed") or 0) < len(rows):
+            await _wait_if_paused(int(event.get("completed") or 0) + 1)
 
     async def on_row(index, row):
         nonlocal email_path
@@ -388,6 +456,10 @@ async def start_email_lookup(job_id: str) -> dict[str, Any]:
         job["updated_at"] = _now()
         job["log"].append("Email stage finished: every listing had no website; all skipped and no pages fetched.")
         return {"job_id": job_id, "status": "completed", "operation": "emails"}
+    resume_event = asyncio.Event()
+    resume_event.set()
+    job["_email_resume_event"] = resume_event
+    job["email_pause_requested"] = False
     job["enrichment_status"] = "queued"
     job["enrichment_error"] = None
     job["enrichment_events"] = []
@@ -405,8 +477,50 @@ async def start_email_lookup(job_id: str) -> dict[str, Any]:
     return {"job_id": job_id, "status": "queued", "operation": "emails"}
 
 
+@app.post("/api/jobs/{job_id}/emails/pause")
+async def pause_email_lookup(job_id: str) -> dict[str, Any]:
+    job = JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Search job not found")
+    status = job.get("enrichment_status")
+    if status in {"paused", "pausing"}:
+        return {"job_id": job_id, "status": status, "operation": "pause"}
+    if status not in {"queued", "running", "resuming"}:
+        raise HTTPException(status_code=409, detail="Email lookup is not currently running")
+    resume_event = job.get("_email_resume_event")
+    if resume_event is None:
+        resume_event = asyncio.Event()
+        job["_email_resume_event"] = resume_event
+    resume_event.clear()
+    job["email_pause_requested"] = True
+    job["enrichment_status"] = "pausing"
+    job["updated_at"] = _now()
+    job["log"].append("Pause requested; email lookup will pause after the current listing finishes.")
+    return {"job_id": job_id, "status": job["enrichment_status"], "operation": "pause"}
+
+
+@app.post("/api/jobs/{job_id}/emails/resume")
+async def resume_email_lookup(job_id: str) -> dict[str, Any]:
+    job = JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Search job not found")
+    status = job.get("enrichment_status")
+    if status in {"running", "resuming"}:
+        return {"job_id": job_id, "status": status, "operation": "resume"}
+    if status not in {"paused", "pausing"}:
+        raise HTTPException(status_code=409, detail="Email lookup is not paused")
+    resume_event = job.get("_email_resume_event")
+    job["email_pause_requested"] = False
+    job["enrichment_status"] = "resuming" if status == "paused" else "running"
+    if resume_event is not None:
+        resume_event.set()
+    job["updated_at"] = _now()
+    job["log"].append("Resumed email lookup.")
+    return {"job_id": job_id, "status": job["enrichment_status"], "operation": "resume"}
+
+
 @app.post("/api/jobs/{job_id}/kpi")
-async def run_kpi(job_id: str) -> dict[str, Any]:
+async def run_kpi(job_id: str, payload: KpiThresholds | None = None) -> dict[str, Any]:
     job = JOBS.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Search job not found")
@@ -415,25 +529,46 @@ async def run_kpi(job_id: str) -> dict[str, Any]:
     if job["status"] not in {"completed", "partial"} or not job.get("results"):
         raise HTTPException(status_code=409, detail="Fetch business listings first")
     if job.get("enrichment_status") != "completed":
-        raise HTTPException(status_code=409, detail="Finish Get emails before running KPI qualification")
-    if job.get("kpi_status") == "completed":
-        return _public_job(job, include_results=True)
+        raise HTTPException(status_code=409, detail="Finish Email stage before running KPI qualification")
 
-    qualified = _qualified_rows(job)
-    # No await between the concurrency guard and this short local transaction.
-    # A separate derivative preserves both raw and email-stage source exports.
+    thresholds = payload or KpiThresholds()
+    qualified = _qualified_rows(job, thresholds)
     path = save_results(qualified, job["query"] + "_qualified", OUTPUT_DIR, fields=RESULT_FIELDS)
-    job["email_csv_path"] = job.get("csv_path")
+    job["email_csv_path"] = job.get("email_csv_path") or job.get("csv_path")
     job["kpi_csv_path"] = str(path)
     job["csv_path"] = str(path)
     job["results"] = qualified
     job["kpi_status"] = "completed"
     job["kpi_version"] = KPI_VERSION
-    job["kpi_criteria"] = dict(KPI_CRITERIA)
+    job["kpi_thresholds"] = thresholds.model_dump()
+
+    active_criteria = dict(KPI_CRITERIA)
+    threshold_notes = []
+    if thresholds.min_rating > 0:
+        threshold_notes.append(f"Min Rating: {thresholds.min_rating:.1f}")
+    if thresholds.min_reviews > 0:
+        threshold_notes.append(f"Min Reviews: {thresholds.min_reviews}")
+    if thresholds.require_website:
+        threshold_notes.append("Website Required")
+    if thresholds.require_phone:
+        threshold_notes.append("Phone Required")
+    if thresholds.require_email:
+        threshold_notes.append("Email Required")
+    if thresholds.strict_berlin:
+        threshold_notes.append("Strict Berlin Address Required")
+    if thresholds.accept_name_match:
+        threshold_notes.append("Name Match Accepted")
+
+    if threshold_notes:
+        active_criteria["Active Thresholds"] = " | ".join(threshold_notes)
+
+    job["kpi_criteria"] = active_criteria
     job["kpi_completed_at"] = _now()
     job["results_revision"] = job.get("results_revision", 0) + 1
     job["updated_at"] = _now()
-    job["log"].append("Maps-only KPI screening completed on explicit request; original rows retained in order.")
+    job["log"].append(
+        f"Maps KPI qualification run with thresholds: {', '.join(threshold_notes) if threshold_notes else 'default'}."
+    )
     return _public_job(job, include_results=True)
 
 
@@ -478,7 +613,7 @@ async def start_search(request: SearchRequest) -> dict[str, Any]:
     global ACTIVE_JOB_ID
     if ACTIVE_JOB_ID:
         active = JOBS.get(ACTIVE_JOB_ID)
-        if active and (active["status"] in {"queued", "running"} or active.get("enrichment_status") in {"queued", "running"}):
+        if active and _job_is_active(active):
             raise HTTPException(status_code=409, detail="A Maps search is already running")
         ACTIVE_JOB_ID = None
 
@@ -516,11 +651,7 @@ async def list_jobs() -> dict[str, Any]:
 @app.delete("/api/jobs")
 async def clear_jobs() -> dict[str, int]:
     global ACTIVE_JOB_ID
-    active_jobs = [
-        job for job in JOBS.values()
-        if job["status"] in {"queued", "running"}
-        or job.get("enrichment_status") in {"queued", "running"}
-    ]
+    active_jobs = [job for job in JOBS.values() if _job_is_active(job)]
     if active_jobs:
         raise HTTPException(
             status_code=409,
@@ -529,7 +660,15 @@ async def clear_jobs() -> dict[str, int]:
     cleared_count = len(JOBS)
     JOBS.clear()
     ACTIVE_JOB_ID = None
-    return {"cleared_count": cleared_count, "remaining": len(JOBS)}
+    deleted_files = 0
+    if OUTPUT_DIR.is_dir():
+        for item in OUTPUT_DIR.iterdir():
+            if item.is_dir():
+                shutil.rmtree(item, ignore_errors=True)
+            else:
+                item.unlink(missing_ok=True)
+            deleted_files += 1
+    return {"cleared_count": cleared_count, "deleted_files": deleted_files, "remaining": len(JOBS)}
 
 
 @app.get("/api/jobs/{job_id}")

@@ -1,81 +1,219 @@
 # Metering Lead Finder
 
-Local FastAPI dashboard using a bundled Chrome extension inside full Chromium, with visible or headless mode selected by `HEADLESS`. The extension collects the business records; Python automates its Start/Export controls and saves the returned data.
+A local web application for discovering, enriching, qualifying, and exporting Berlin property-management leads for metering service providers.
+
+The app uses a bundled Chrome extension inside Chromium to collect Google Maps listings, enriches them with public website contacts and emails, applies rule-based qualification thresholds, and exports a formatted Excel workbook.
 
 ```text
-Dashboard -> FastAPI -> full Chromium (HEADLESS=true/false)
-                             -> bundled scraping extension -> Maps records
-                             -> extension background worker -> optional website contacts
-         <- result table + CSV sources + staged KPI/Excel export
+Dashboard -> FastAPI -> Chromium (HEADLESS=true/false)
+                          -> Bundled extension -> Google Maps listings
+                          -> Background worker -> Website email discovery
+          <- Table view + CSV checkpoints + Formatted Excel (.xlsx) export
 ```
 
-## Research documentation
+---
 
-- [Task 3: Research approach and validation - Markdown draft](docs/task-3-approach-draft.md): v0.2 methodology covering the staged workflow, provisional KPI criteria, validation limits and future work.
-- [Editable Word version](docs/task-3-approach-draft.docx): generated from the Markdown master. Neither document claims completed official-source qualification or verified decision-maker contacts.
-- The original planning page in `../berlin-hausverwaltung-research/index.html` has been updated to reflect the built FastAPI/extension/CSV workflow rather than the earlier proposed frontend/database stack.
+## Quick Start
 
-## Run locally
+### 1. Requirements
+
+- Linux or macOS with Python 3.10+
+- Chromium browser dependencies (installed via Playwright)
+
+### 2. Setup and Installation
 
 ```bash
-cd ~/Projects/metering
+cd /metering
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python -m playwright install chromium
-.venv/bin/uvicorn app:app --host 127.0.0.1 --port 3000
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m playwright install chromium
 ```
 
-Open http://127.0.0.1:3000. The server binds to localhost only. Add authentication before exposing it to a network.
+### 3. Configuration
 
-### Browser visibility
+Copy `.env.example` to `.env` (optional, defaults to headless):
 
-Set `HEADLESS` in the project-root `.env`:
+```bash
+cp .env.example .env
+```
 
 ```dotenv
 HEADLESS=true
 ```
 
-- `true`: run Chromium without a visible window (default).
-- `false`: show the Chromium window; requires a working graphical desktop/X server. No off-screen positioning is applied.
+- `true`: Chromium runs in the background without opening a browser window.
+- `false`: Displays the live Chromium window during searches and email lookups (requires an active desktop/X11 session).
 
-Both Maps collection and the separate email lookup use this setting. Restart an already-running dashboard once after installing this code change. Thereafter `.env` is read for each new browser launch, so changing the flag affects the next job without another restart; an existing browser is not changed. An exported `HEADLESS` environment variable takes precedence. Only `true` or `false` are accepted. `.env` stays gitignored; `.env.example` documents the default.
+### 4. Start the Application
 
+```bash
+uvicorn app:app --host 127.0.0.1 --port 3000
+```
 
-The workflow is **Fetch raw data → Get emails → Run KPI → Download Excel**. Collection does not fetch websites, email lookup does not qualify companies, and KPI screening runs only after an explicit click once the email stage has finished. The final download is a genuine `.xlsx` workbook; source CSVs remain saved separately. There is no numeric listing cap (`limit=0` internally). For list searches the extension keeps scrolling, including nudging an idle feed, until Maps displays "You've reached the end of the list." Unchanged heights or a matching CSS class alone are not completion. The extension continues through a limited-view notice and temporary feed replacement, scrolling each viewport of the results container. Python waits for the same extension run's explicit `finished` acknowledgement and confirmed end marker; it does not infer completion from a reset button label or low count. Verification, consent, collection errors or the runner's two-hour safety budget produce an explicitly partial result with available rows saved and a `stop_reason`. If Maps reports limited view even when the exposed list ends, the export retains a restricted-coverage warning and partial status. Single-place and explicit no-result pages are separate terminal outcomes. This does not guarantee Maps exposes every business. One collection or email lookup can run at a time. Jobs/history are in memory until restart; CSV exports persist under `output/` with collision-safe filenames.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) in your browser.
 
-## Extension workflow
+---
 
-- The runtime Python files are `app.py` (dashboard/API), `csv_output.py` (CSV and XLSX export), and `extension_bundle/run_hermes_scrape.py` (extension orchestration).
-- `extension_bundle/` contains a project-local copy of the extension and its assets. The original `~/Projects/scrape-extension` is not modified or required at runtime.
-- The runner uses `launch_persistent_context`, the configured `HEADLESS` value, `channel="chromium"`, `--load-extension`, and `--disable-extensions-except`. It presses the extension's injected Start/Export controls and receives its exported records through the console handshake.
-- Explicit website-email enrichment invokes the bundled extension's `extractemail` function in its background service worker. Python does not navigate or parse business-site pages for that step. The extension has broad HTTP/HTTPS host permissions so it can fetch arbitrary public business websites.
-- Dashboard extension failures are reported instead of silently switching to another collector.
-- Native email lookup is disabled in the bundled `contentScript.js`, so raw collection does not fetch business websites. The separate `Get emails` action uses the extension service worker and never reruns Maps collection. The original source extension's setting is unchanged.
+## The Four-Stage Workflow
 
-## KPI screening and Excel export
+The pipeline runs in four distinct stages. Each step requires manual selection and confirms its prerequisites before running:
 
-- Click the **i** icon beside **Run KPI** to inspect the Maps-only screening criteria and row-color key before applying them.
-- **Clear all** under **Recent results** opens a confirmation modal and removes the current dashboard’s in-memory search records and selected result view. It is disabled during active collection/email lookup; saved export files remain untouched.
-- **Get emails** must finish before **Run KPI** is enabled. Missing websites can be skipped; a finished pass does not mean all pages were accessible or emails were found. A job-level failure still requires retry/completion.
-- Clicking **Run KPI** applies deterministic Maps-category screening to the selected results only. No website requests, AI research, outreach or automatic classification during raw/email stages are involved.
-- An explicit property-management category is a provisional **Accepted** candidate. Clearly unrelated categories without conflicting management signals are **Rejected**. Missing/ambiguous categories, broker-only listings, name-only signals and conflicts are **Needs review**.
-- Accepted rows are fully green; rejected rows are fully red; review rows remain neutral. Every row stays in its original order, including rejected ones.
-- KPI fields cover status/reason, management-category match, Berlin evidence level, listed website/phone presence, source link and method. Portfolio size and metering-service fit remain Unknown. Ratings/review counts do not determine fit. A Berlin query or street-only address is not geographic verification.
-- The backend enforces the same sequence as the buttons. It saves a separate `_qualified.csv`, preserving raw and email-stage exports.
-- **Download Excel** is enabled only after KPI completion. Its `.xlsx` contains **Qualified leads** and **KPI criteria** sheets, full-row green/red fills, filters and frozen headings/key columns. Contact and listing strings are exported as literal text, not formulas.
-- The existing CSV API remains available for compatibility; the final UI download is Excel. No Google Sheets integration is present.
-- New routes: `POST /api/jobs/{job_id}/kpi`, `GET /api/jobs/{job_id}/excel`, and `DELETE /api/jobs` to clear in-memory dashboard history. KPI rejects requests before email-stage completion; Excel rejects requests before KPI completion; clearing rejects requests while a collection or email lookup is active.
+```text
+Fetch raw data  ->  Get emails  ->  Run KPI  ->  Download Excel
+```
 
-## Results and limitations
+```
+[Search] -> Collect raw Google Maps listings
+[Email]  -> Crawl company websites for emails and social links (with pause / resume)
+[Run KPI]-> Evaluate candidate qualification using custom or default thresholds
+[Excel]  -> Export two-sheet workbook with color-coded rows and audit rules
+```
 
-Raw records are saved to a separate `_raw.csv` export. The explicit email action saves an `_emails.csv` derivative without overwriting the raw file. It checks one business at a time, and that business's contact/about pages are also fetched one at a time. The extension emits real request, page-loaded, extraction and page-error events. Python relays these events; it does not parse website content. These are service-worker HTTP requests, not simulated browser-tab navigation.
+---
 
-The dashboard shows lookup progress directly in each result's Email cell, polling every 500 ms. The active row has an animated `Fetching…` indicator with the requested page URL in its tooltip; other rows can show queued, missing-website, no-email or failure outcomes from observed events. HTTP 403 is shown as `Blocked (403)`, not as an email-free successful check. Existing email values remain visible. The separate email summary/activity panel is removed. These UI labels never modify CSV email values. Missing websites are explicitly skipped; failed/timeout lookups are distinguished from a checked page with no email found. The table and saved email-stage CSV are checkpointed after each business, using atomic replacement for subsequent updates. If lookup stops, completed rows and their derivative remain available, the raw CSV stays unchanged, and lookup can be retried. A 90-second business safety deadline aborts outstanding extension requests and waits for them to settle before another business can start. If settlement fails, the job stops instead of overlapping requests.
+### Stage 1: Fetch Raw Data (Google Maps Collection)
 
-The finished raw-collection summary banner is hidden, including its partial-results/limited-view copy; internal status/warnings and the saved data are retained. Active collection, failures and email-lookup progress are still displayed.
+Enter a targeted search query (e.g. `Hausverwaltung Berlin`, `WEG-Verwaltung Berlin`, or `Mietverwaltung Berlin`) and click **Search**.
 
-Emails are extracted strings, not verified current, deliverable, or decision-maker contacts. No outreach is sent. The extension's DOM selectors and Maps response parser may need maintenance when Google changes its pages. An idle feed or limited-view notice does not itself stop collection. The actual end marker finishes a list run; access boundaries, errors, manual stop or the runner's safety budget can interrupt it. A successful export does not establish exhaustive coverage. No CAPTCHA or verification bypass is implemented. Use in accordance with applicable terms and laws.
+- Python launches Chromium with the bundled extension and navigates Google Maps.
+- The extension automatically scrolls through listings, handles idle delays, and continues until Maps reports that the end of the list has been reached.
+- Real-time search status displays directly on the primary action button (`Searching...` with spinner).
+- The raw results are saved immediately to disk as `output/<query>_raw.csv`.
 
-Future work includes provider/challenge detection and permitted browser-backed access to public pages, owner-approved allowlisting or official APIs, durable lookup outcomes, deeper company evidence and persistent job recovery. These are planned capabilities, not a working Cloudflare/provider bypass; see the methodology draft.
+![Stage 1 - Raw Search and Dashboard Layout](docs/images/01-search-dashboard.png)
+*Figure 1: Full-width dashboard layout showing centered navbar progress, search input, and active collection.*
 
-The new KPI/Excel actions have not been exercised under the application-testing deferral. Source checks and a history-preserving restart do not validate the research records or workbook behavior.
+---
+
+### Stage 2: Get Emails (Website Contact Enrichment)
+
+Once raw listings appear in the table, the **Email** button becomes active. Clicking it triggers website contact extraction:
+
+- The extension background worker visits each company website and scans contact/imprint pages for public email addresses and social links (LinkedIn, Instagram, Facebook).
+- **Pause and resume controls**:
+  - While running, the button shows `[||] Email`. Clicking it pauses after the active listing finishes.
+  - While paused, the button shows `[>] Email`. Clicking it resumes from the next queued row.
+  - On completion, the button shows `[v] Email`.
+- The live table updates per row: showing `Fetching...` on the active company, `Queued` on pending rows, and the discovered email once found.
+- Progress checkpoints continuously to `output/<query>_emails.csv` without overwriting raw data.
+
+![Stage 2 - Email Enrichment and Pause/Resume](docs/images/02-email-enrichment.png)
+*Figure 2: Active email discovery showing the pause button, per-row lookup states, and extracted contact details.*
+
+---
+
+### Stage 3: KPI Thresholds Setup and Qualification
+
+After email lookup finishes, the **Run KPI** button and the **Setup** gear icon (`⚙`) become available.
+
+Clicking the setup icon opens the **KPI Thresholds Setup** modal. You can review the criteria, adjust thresholds, and re-run KPI evaluations as many times as needed:
+
+- **Info disclosure (`i`)**: Clicking the info icon beside the modal title displays the screening criteria and color key.
+- **Configurable threshold parameters**:
+  - **Minimum Google Rating**: Flag candidates below this rating as Needs review (default: `3.0`).
+  - **Minimum Reviews**: Require at least this many Google reviews (default: `10`).
+  - **Require Website**: Only accept listings with an active website URL (default: `true`).
+  - **Require Phone Number**: Only accept listings with a listed phone number (default: `false`).
+  - **Require Extracted Email**: Only accept listings where an email was found (default: `true`).
+  - **Strict Berlin Postal Address**: Flag listings whose postal address does not verify Berlin (default: `true`).
+  - **Accept on Name Match**: Accept candidates if property-management keywords appear in business name even if Google Maps categorized them broadly as a real estate broker (default: `true`).
+- **Reset defaults**: Restores recommended baseline settings with one click.
+- **Re-run anytime**: You can adjust thresholds and click **Save & Run KPI** repeatedly to experiment with different qualification criteria.
+
+![Stage 3 - KPI Thresholds Setup Modal](docs/images/03-kpi-thresholds-modal.png)
+*Figure 3: KPI Thresholds Setup modal with screening info disclosure and configurable threshold controls.*
+
+---
+
+### Stage 4: Results Table and Excel Workbook Export
+
+Applying KPI thresholds updates the results table and unlocks the **Download Excel** button:
+
+- **Row color coding**:
+  - **Green (Accepted)**: Matches all property-management criteria and passes all threshold gates.
+  - **Red (Rejected)**: Category is unrelated to property management with no matching signals.
+  - **Neutral (Needs review)**: Ambiguous categories, missing evidence, or failed threshold gates (e.g. fewer than 10 reviews, missing email, or rating under 3.0).
+- **Download Excel**: Generates a formatted `.xlsx` workbook containing:
+  - **Qualified leads sheet**: Full listing data, extracted emails, qualification status, and detailed reason notes. Rows match the dashboard's green/red color styling, with frozen header rows and auto-filters.
+  - **KPI criteria sheet**: Complete audit record of the active thresholds, query details, timestamp, and methodology limits.
+  - Contact fields and numbers are saved as clean text to prevent spreadsheet formula corruption.
+
+![Stage 4 - KPI Qualification Results and Excel Export](docs/images/04-kpi-results-table.png)
+*Figure 4: Screened leads table showing color-coded qualification statuses, Re-run KPI button, and Excel download ready.*
+
+---
+
+## Default KPI Thresholds Reference
+
+| Parameter | Default | Rationale |
+| :--- | :---: | :--- |
+| **Minimum Reviews** | `10` | Filters out placeholder listings while retaining established local property managers. |
+| **Minimum Google Rating** | `3.0` | Balanced cutoff. Many large, high-volume managers receive negative reviews from tenants regarding repairs. Setting this too high eliminates top-tier targets. |
+| **Require Website** | `true` | Ensures the business has an active digital presence for outreach and research. |
+| **Require Extracted Email** | `true` | Focuses the Accepted shortlist on candidates ready for email communication. |
+| **Strict Berlin Postal Address** | `true` | Confirms the physical address is in Berlin's postal code area (10000 - 14199), excluding out-of-state aggregators. |
+| **Accept on Name Match** | `true` | Accepts firms whose Google category is generic (e.g. *Immobilienmakler*), but whose name explicitly says *Hausverwaltung* or *Mietverwaltung*. |
+| **Require Phone Number** | `false` | Kept optional so candidates with confirmed websites and emails are not excluded if phone is omitted. |
+
+---
+
+## Evidence Boundaries and Validation Limits
+
+1. **Google Maps is discovery, not commercial proof**:
+   A Maps listing confirms a business name, category, and address. It does not prove managed unit count, building types, active metering provider, or purchasing authority.
+2. **Search context vs. geographic proof**:
+   A business appearing in a search for "Hausverwaltung Berlin" is marked with search context. Only an explicit Berlin postal address verifies local office presence.
+3. **Extracted emails are public discovery strings**:
+   Emails found on websites are public general inboxes (e.g. `info@...`, `kontakt@...`), not verified personal decision-maker contacts. No automated emails are ever sent by this tool.
+4. **Unknowns remain Unknown**:
+   Portfolio scale, managed units, and commercial intent remain `Unknown`. Ratings and reviews are not used as proxies for company size or buying fit.
+5. **Human review required before outreach**:
+   Accepted records are provisional candidates for further research, not confirmed customer endorsements.
+
+---
+
+## Project Structure
+
+```text
+metering/
+├── app.py                      # FastAPI server, endpoints, and KPI qualification logic
+├── csv_output.py               # openpyxl Excel (.xlsx) and CSV export utilities
+├── requirements.txt            # Python dependencies (FastAPI, Playwright, openpyxl, etc.)
+├── .env.example                # Example environment template
+├── .env                        # Local environment settings (HEADLESS=true/false)
+├── static/
+│   └── index.html              # Single-page dashboard (HTML, CSS, vanilla JavaScript)
+├── extension_bundle/           # Bundled Chrome scraping extension and Playwright runner
+│   ├── run_hermes_scrape.py    # Automation harness for Maps collection and email extraction
+│   ├── manifest.json           # Extension manifest
+│   ├── contentScript.js        # Maps DOM scraper
+│   └── background.js           # Background service worker for website email lookups
+├── output/                     # Generated CSV and Excel exports (gitignored)
+│   ├── <query>_raw.csv         # Raw Google Maps collection
+│   ├── <query>_emails.csv      # Contact-enriched derivative
+│   └── <query>_qualified.csv   # KPI-screened dataset
+└── docs/                       # Research documentation and figures
+    ├── images/                 # Workflow screenshots
+    │   ├── 01-search-dashboard.png
+    │   ├── 02-email-enrichment.png
+    │   ├── 03-kpi-thresholds-modal.png
+    │   └── 04-kpi-results-table.png
+    └── task-3-approach-draft.docx  # Formatted Word documentation with embedded figures
+```
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/jobs` | Start a new Google Maps search job for a given query. |
+| `GET` | `/api/jobs/{id}` | Get status, live progress, and results for a job. |
+| `POST` | `/api/jobs/{id}/emails` | Start website email enrichment. |
+| `POST` | `/api/jobs/{id}/emails/pause` | Pause active website email enrichment. |
+| `POST` | `/api/jobs/{id}/emails/resume` | Resume paused email enrichment. |
+| `POST` | `/api/jobs/{id}/kpi` | Run or re-run KPI qualification with custom thresholds. |
+| `GET` | `/api/jobs/{id}/excel` | Download the formatted `.xlsx` workbook. |
+| `GET` | `/api/history` | List recent search jobs in memory. |
+| `DELETE`| `/api/jobs` | Clear in-memory history (disk exports are preserved). |

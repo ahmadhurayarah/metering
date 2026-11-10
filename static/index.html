@@ -21,27 +21,47 @@
       --warning: #ffd28a;
     }
     * { box-sizing: border-box; }
-    body {
+    html, body {
+      height: 100%;
+      width: 100%;
       margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    body {
       min-width: 320px;
       background: radial-gradient(ellipse at 10% -10%, #162747 0, transparent 42%), var(--bg);
       color: var(--text);
       font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     a { color: var(--blue); }
-    .shell { width: min(1480px, calc(100% - 40px)); margin: 0 auto; padding: 25px 0 48px; }
-    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 12px; }
+    .shell {
+      width: 100%;
+      max-width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      margin: 0;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+    .topbar { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 10px; flex: none; min-height: 44px; }
     .brand { display: flex; align-items: center; gap: 12px; }
     .brand-mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 13px; color: #062218; background: var(--accent); font-weight: 900; font-size: 19px; }
     .brand-name { font-size: 15px; font-weight: 750; letter-spacing: .01em; }
     .brand-caption { color: var(--muted); font-size: 12px; margin-top: 1px; }
 
-
-
-
-    .layout { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); align-items: start; gap: 18px; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(230px, 280px) minmax(0, 1fr);
+      align-items: stretch;
+      gap: 14px;
+      flex: 1;
+      min-height: 0;
+    }
     .card { border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 94%, transparent); border-radius: 16px; box-shadow: 0 16px 45px #02071140; }
-    .search-card { padding: 14px 20px; margin-bottom: 12px; }
+    .search-card { padding: 12px 18px; margin-bottom: 12px; flex: none; }
     #search-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px 14px; }
     .search-field { min-width: 0; }
     .search-field label { margin-top: 0; }
@@ -64,62 +84,68 @@
     .button-spinner { width: 14px; height: 14px; display: inline-block; vertical-align: -2px; margin-right: 7px; border: 2px solid #05231755; border-top-color: #052317; border-radius: 50%; animation: email-spin .8s linear infinite; }
     .stage-check { display: inline-block; margin-right: 5px; color: var(--accent); font-size: 15px; line-height: 1; }
     .download-icon { width: 14px; height: 14px; margin-right: 6px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .btn-icon { width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; display: inline-block; flex: none; }
+    .btn-icon.fill { fill: currentColor; }
+    .btn-icon.stroke { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-    .side-section { padding: 17px 18px; }
-    .side-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .workflow-nav { position: absolute; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line); white-space: nowrap; }
+    .workflow-steps { font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: -.01em; }
+
+    aside { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+    .side-section { padding: 14px 16px; height: 100%; min-height: 0; display: flex; flex-direction: column; }
+    .side-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex: none; }
     .side-heading h2 { margin: 0; font-size: 13px; }
     .side-actions { display: inline-flex; align-items: center; gap: 9px; }
     .refresh-btn { border: 0; background: none; color: var(--blue); font: inherit; font-size: 11px; cursor: pointer; }
     .clear-history-btn { border: 0; background: none; color: #ff9aa4; font: inherit; font-size: 11px; cursor: pointer; }
     .clear-history-btn:hover:not(:disabled) { color: #ffd1d5; }
     .clear-history-btn:disabled { opacity: .4; cursor: not-allowed; }
-    .history { display: grid; gap: 7px; margin-top: 12px; max-height: min(65vh, 700px); overflow-y: auto; }
+    .clear-notice { margin: 8px 0 0; padding: 6px 10px; border-radius: 8px; background: #123b2c; color: #79dfa9; border: 1px solid #1f6b4d; font-size: 11px; font-weight: 600; flex: none; }
+    .history { display: grid; gap: 7px; margin-top: 10px; flex: 1; min-height: 0; overflow-y: auto; align-content: start; }
     .history-item { width: 100%; padding: 9px 10px; border: 1px solid transparent; border-radius: 9px; background: #0d1728; color: var(--text); text-align: left; cursor: pointer; }
     .history-item:hover, .history-item.active { border-color: #37506f; background: var(--panel-soft); }
     .history-query { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 650; }
     .history-meta { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 10px; margin-top: 3px; }
     .empty-history { color: var(--muted); font-size: 12px; margin: 0; }
-    .workspace { min-width: 0; overflow: hidden; }
-    .status-card { padding: 18px 20px; margin-bottom: 14px; }
-    .status-line { display: flex; align-items: center; gap: 10px; }
-    .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #53627a; box-shadow: 0 0 0 4px #53627a20; flex: none; }
-    .status-dot.running { background: #69d9a2; box-shadow: 0 0 0 4px #69d9a225; animation: pulse 1.3s infinite; }
-    .status-dot.completed { background: #69d9a2; box-shadow: 0 0 0 4px #69d9a225; }
-    .status-dot.partial { background: #ffc875; box-shadow: 0 0 0 4px #ffc87522; }
-    .status-dot.failed { background: #ff8181; box-shadow: 0 0 0 4px #ff818122; }
-    @keyframes pulse { 50% { opacity: .45; } }
-    .status-title { font-size: 13px; font-weight: 750; }
-    .status-detail { color: var(--muted); font-size: 12px; margin: 3px 0 0 19px; overflow-wrap: anywhere; }
-    .alert { margin-top: 12px; padding: 10px 12px; border-radius: 9px; color: var(--warning); background: #3a2b173b; border: 1px solid #6b4a273d; font-size: 12px; }
-    .alert.error { color: var(--danger); background: #3a17173b; border-color: #6b27273d; }
+    .workspace { min-width: 0; height: 100%; min-height: 0; display: flex; flex-direction: column; }
+    .alert { padding: 12px 14px; border-radius: 9px; color: var(--warning); background: #3a2b173b; border: 1px solid #6b4a273d; font-size: 12px; flex: none; }
+    .alert.error { color: #ff8181; background: #3a171780; border-color: #8c2e2e; }
     .email-fetch-state { display: flex; align-items: center; gap: 6px; margin-top: 3px; color: var(--muted); font-size: 11px; font-weight: 500; }
     .email-fetch-state.fetching { color: var(--accent); }
     .email-fetch-state.fetching::before { content: ''; width: 10px; height: 10px; flex: none; border: 2px solid #75e0b040; border-top-color: var(--accent); border-radius: 50%; animation: email-spin .8s linear infinite; }
     .email-fetch-state.error { color: var(--warning); }
     @keyframes email-spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) { .email-fetch-state.fetching::before { animation: none; } }
-    .results-card { overflow: hidden; }
-    .results-head { padding: 18px 20px 13px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+    .results-card { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .results-head { padding: 14px 18px 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; flex: none; }
     .results-head h2 { margin: 0; font-size: 16px; }
     .results-subtitle { color: var(--muted); margin-top: 4px; font-size: 11px; }
     .stats { display: flex; gap: 8px; }
     .stat { min-width: 94px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #0c1728; }
     .stat strong { display: block; font-size: 16px; line-height: 1.2; }
     .stat span { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
-    .table-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 0 20px 13px; }
+    .table-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 0 18px 10px; flex: none; }
     .filter-input { max-width: 340px; padding: 8px 10px !important; font-size: 12px !important; }
     .download-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 35px; padding: 0 12px; border: 1px solid #37536f; border-radius: 8px; background: #14233a; color: #cfe5ff; text-decoration: none; font-size: 11px; font-weight: 700; }
     .download-btn:disabled, .download-btn[aria-disabled="true"] { opacity: .42; pointer-events: none; }
+    #download:not([aria-disabled="true"]) { background: #123b2c; border-color: #2da877; color: #7df5be; }
+    #download:not([aria-disabled="true"]):hover { background: #194c39; border-color: #75e0b0; color: #ffffff; }
+    #get-emails.btn-running { background: #332717; border-color: #805c2d; color: #ffd28a; transition: .15s ease; }
+    #get-emails.btn-running:hover:not(:disabled) { background: #47361f; border-color: #ffc875; color: #fff; transform: translateY(-1px); }
+    #get-emails.btn-paused { background: #123b2c; border-color: #2da877; color: #7df5be; transition: .15s ease; }
+    #get-emails.btn-paused:hover:not(:disabled) { background: #194c39; border-color: #75e0b0; color: #fff; transform: translateY(-1px); }
+    #get-emails.btn-done { background: #10261d; border-color: #2da877; color: var(--accent); opacity: 0.95 !important; }
     button.download-btn { cursor: pointer; font: inherit; font-size: 11px; }
     button.download-btn:disabled { cursor: not-allowed; }
     .showing-count { margin-left: auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
-    .table-scroll { width: 100%; overflow: auto; max-height: min(66vh, 720px); border-top: 1px solid var(--line); scrollbar-color: #33445f #0c1628; }
+    .table-scroll { width: 100%; flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--line); scrollbar-color: #33445f #0c1628; }
     table { border-collapse: separate; border-spacing: 0; min-width: 100%; width: max-content; font-size: 11px; }
     th, td { max-width: 270px; min-width: 110px; padding: 9px 11px; border-right: 1px solid #23334b; border-bottom: 1px solid #23334b; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
     th { position: sticky; top: 0; z-index: 2; background: #15223a; color: #b9c9df; font-size: 10px; font-weight: 750; white-space: nowrap; }
     td { color: #d5dfec; }
     td.email-cell { color: var(--accent); font-weight: 650; }
-    th.row-number, td.row-number { width: 42px; min-width: 42px; max-width: 42px; padding: 9px 7px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+    th.row-number, td.row-number { width: 44px; min-width: 44px; max-width: 44px; padding: 9px 8px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 600; }
+    th.row-number { color: var(--accent); background: #15223a; }
     td a { display: inline-block; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     tbody tr:hover td { background: #17253a; }
     tbody tr[data-kpi-status="accepted"] > td { background: #123b2c; }
@@ -128,12 +154,16 @@
     tbody tr[data-kpi-status="rejected"]:hover > td { background: #592c36; }
     td.qualification-cell { font-weight: 750; }
     .kpi-action-wrap { position: relative; display: inline-flex; align-items: center; gap: 5px; }
-    .kpi-info-button { width: 22px; height: 22px; min-height: 22px; padding: 0; display: inline-grid; place-items: center; border: 1px solid #52647e; border-radius: 50%; background: #101c2e; color: #c9d8e9; font: 700 13px/1 sans-serif; cursor: pointer; }
-    .kpi-info-button:hover, .kpi-info-button[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+    .kpi-icon-button { width: 32px; height: 35px; min-height: 35px; padding: 0; display: inline-grid; place-items: center; border: 1px solid #37536f; border-radius: 8px; background: #14233a; color: #cfe5ff; cursor: pointer; transition: .15s ease; }
+    .kpi-icon-button:hover:not(:disabled) { background: #1d3252; border-color: #648bb4; color: #fff; }
+    .kpi-icon-button:disabled { opacity: .42; cursor: not-allowed; }
+    .kpi-icon-button.has-thresholds { border-color: #2da877; color: #7df5be; }
+    .kpi-info-button { width: 20px; height: 20px; min-height: 20px; padding: 0; display: inline-grid; place-items: center; border: 1px solid #52647e; border-radius: 50%; background: #101c2e; color: #c9d8e9; font: 700 12px/1 sans-serif; cursor: pointer; transition: .15s ease; }
+    .kpi-info-button:hover, .kpi-info-button[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); background: #142e23; }
     .kpi-info-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-    .kpi-tooltip { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20; width: min(520px, calc(100vw - 28px)); max-height: min(72vh, 620px); overflow: auto; padding: 13px 15px; border: 1px solid #40536e; border-radius: 10px; background: #101a2a; color: #d5dfec; box-shadow: 0 12px 32px #0009; font-size: 12px; line-height: 1.45; }
+    .kpi-tooltip { margin: 10px 0 12px; padding: 12px 14px; border: 1px solid #374b67; border-radius: 9px; background: #09121f; color: #d5dfec; font-size: 11px; line-height: 1.45; }
     .kpi-tooltip[hidden] { display: none; }
-    .kpi-tooltip-title { display: block; color: #f0f5fc; font-size: 13px; }
+    .kpi-tooltip-title { display: block; color: #f0f5fc; font-size: 13px; font-weight: 750; }
     .kpi-tooltip-list { margin: 9px 0 0; padding-left: 18px; }
     .kpi-tooltip-list li { margin-bottom: 8px; }
     .kpi-tooltip-list li:last-child { margin-bottom: 0; }
@@ -156,22 +186,37 @@
     .confirm-actions button { min-height: 34px; padding: 0 12px; border: 1px solid #40536e; border-radius: 7px; background: #14233a; color: #d5dfec; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
     .confirm-actions .confirm-danger { border-color: #8b3f4b; background: #572b35; color: #ffe4e7; }
     .confirm-actions button:disabled { opacity: .55; cursor: wait; }
+    .kpi-settings-dialog { width: min(520px, calc(100vw - 28px)); max-height: 90vh; overflow-y: auto; }
+    .kpi-form-grid { display: grid; gap: 8px; margin: 14px 0 18px; }
+    .kpi-form-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 9px 12px; border: 1px solid #23344d; border-radius: 9px; background: #0d1728; }
+    .kpi-form-info { flex: 1; min-width: 0; }
+    .kpi-form-info label { display: block; margin: 0; color: #edf3fc; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .kpi-form-sub { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; line-height: 1.35; }
+    .kpi-num-input { width: 76px !important; padding: 6px 8px !important; font-size: 13px !important; text-align: right; flex: none; }
+    .kpi-checkbox { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex: none; margin: 0; }
     .table-empty { padding: 36px 20px; color: var(--muted); text-align: center; font-size: 13px; }
-    .footer-note { color: #788aa4; font-size: 10px; padding: 11px 20px 14px; border-top: 1px solid #1e2d44; }
+    .footer-note { color: #788aa4; font-size: 10px; padding: 7px 18px 9px; border-top: 1px solid #1e2d44; flex: none; }
     @media (max-width: 850px) {
-      .shell { width: min(100% - 24px, 720px); padding-top: 16px; }
-      .topbar { margin-bottom: 12px; }
-      .layout { grid-template-columns: 1fr; }
-      .history { max-height: 180px; }
-      .results-head { padding: 15px 14px 12px; }
-      .table-tools { padding: 0 14px 12px; flex-wrap: wrap; }
+      body { overflow-y: auto; }
+      .shell { width: 100%; height: auto; min-height: 100vh; min-height: 100dvh; padding: 10px; }
+      .topbar { position: static; flex-direction: column; align-items: center; text-align: center; margin-bottom: 10px; gap: 8px; }
+      .workflow-nav { position: static; transform: none; padding: 5px 12px; }
+      .workflow-steps { font-size: 11px; }
+      .layout { grid-template-columns: 1fr; height: auto; flex: none; }
+      aside { height: auto; }
+      .side-section { height: auto; }
+      .history { max-height: 200px; flex: none; }
+      .workspace { height: auto; }
+      .results-card { height: auto; }
+      .table-scroll { max-height: 60vh; }
+      .results-head { padding: 14px 14px 10px; }
+      .table-tools { padding: 0 14px 10px; flex-wrap: wrap; }
       .showing-count { margin-left: 0; }
       .stats { width: 100%; }
       .stat { flex: 1; }
-      .status-card { padding: 15px; }
     }
     @media (max-width: 480px) {
-      .shell { width: calc(100% - 18px); }
+      .shell { padding: 8px; }
       #search-form { grid-template-columns: 1fr; }
       #search-form .primary-btn { grid-column: auto; grid-row: auto; width: 100%; }
 
@@ -188,6 +233,9 @@
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">M</div>
         <div><div class="brand-name">Metering Lead Finder</div><div class="brand-caption">Berlin property-management research</div></div>
+      </div>
+      <div class="workflow-nav">
+        <span class="workflow-steps">Fetch raw data &rarr; Get emails &rarr; Run KPI &rarr; Download Excel.</span>
       </div>
     </header>
 
@@ -212,16 +260,13 @@
               <button id="refresh-history" class="refresh-btn" type="button">Refresh</button>
             </div>
           </div>
+          <p id="clear-notice" class="clear-notice" role="status" hidden>All recent searches and output files cleared.</p>
           <div id="history" class="history"><p class="empty-history">No searches yet.</p></div>
         </section>
       </aside>
 
       <section class="workspace" aria-label="Search results">
-        <div id="status-card" class="card status-card" aria-live="polite" hidden>
-          <div class="status-line"><span id="status-dot" class="status-dot"></span><span id="status-title" class="status-title"></span></div>
-          <div id="status-detail" class="status-detail"></div>
-          <div id="status-alert" class="alert" hidden></div>
-        </div>
+        <div id="status-alert" class="alert error" role="alert" hidden style="margin-bottom: 14px;"></div>
 
         <div class="card results-card">
           <div class="results-head">
@@ -234,27 +279,10 @@
           </div>
           <div class="table-tools">
             <input id="filter" class="filter-input" type="text" placeholder="Filter visible results…" aria-label="Filter results" disabled>
-            <button id="get-emails" class="download-btn" type="button" disabled>Get emails</button>
-            <button id="pause-emails" class="download-btn" type="button" hidden>Pause</button>
+            <button id="get-emails" class="download-btn" type="button" disabled>Email</button>
             <div id="kpi-action-wrap" class="kpi-action-wrap">
               <button id="run-kpi" class="download-btn" type="button" disabled>Run KPI</button>
-              <button id="kpi-info" class="kpi-info-button" type="button" aria-label="Show Maps-only KPI criteria (hover or focus)" aria-controls="kpi-tooltip" aria-describedby="kpi-tooltip" aria-expanded="false">i</button>
-              <div id="kpi-tooltip" class="kpi-tooltip" role="tooltip" hidden>
-                <strong class="kpi-tooltip-title">Maps-only screening criteria</strong>
-                <ul class="kpi-tooltip-list">
-                  <li><strong class="kpi-label accepted">Accepted:</strong> The Maps category explicitly identifies property management. This is a provisional shortlist candidate, not verified metering-customer fit.</li>
-                  <li><strong class="kpi-label rejected">Rejected:</strong> The Maps category is clearly unrelated to property management and the name has no conflicting property-management signal. Rows are retained, not deleted.</li>
-                  <li><strong class="kpi-label review">Needs review:</strong> Missing or ambiguous categories, broker-only/adjacent services, name-only matches, or conflicting listing signals need human review.</li>
-                  <li><strong>Berlin relevance:</strong> Distinguish a Berlin address from search-query context or a name signal. A street-only address, search query or Berlin-named street does not verify Berlin coverage.</li>
-                  <li><strong>Contact details:</strong> Website and phone presence are separate completeness KPIs, not acceptance rules. Website links and extracted emails remain unverified.</li>
-                  <li><strong>Unknowns:</strong> Portfolio size and metering-service fit remain Unknown. Ratings/review counts never determine qualification, scale or buying intent.</li>
-                </ul>
-                <div class="kpi-tooltip-colors" aria-label="Row color key">
-                  <span><i class="kpi-swatch accepted" aria-hidden="true"></i>Green - Accepted candidate</span>
-                  <span><i class="kpi-swatch rejected" aria-hidden="true"></i>Red - Rejected</span>
-                  <span><i class="kpi-swatch review" aria-hidden="true"></i>Neutral - Needs review</span>
-                </div>
-              </div>
+              <button id="kpi-settings-btn" class="kpi-icon-button" type="button" aria-label="Setup KPI thresholds" title="Setup KPI thresholds" disabled><svg class="btn-icon stroke" viewBox="0 0 20 20" aria-hidden="true" style="margin: 0; width: 14px; height: 14px;"><circle cx="10" cy="10" r="3"/><path d="M16.5 13a1.4 1.4 0 0 0 .28 1.54l.05.05a1.7 1.7 0 1 1-2.4 2.4l-.05-.05a1.4 1.4 0 0 0-1.54-.28 1.4 1.4 0 0 0-.85 1.28V18a1.7 1.7 0 1 1-3.4 0v-.06a1.4 1.4 0 0 0-.85-1.28 1.4 1.4 0 0 0-1.54.28l-.05.05a1.7 1.7 0 1 1-2.4-2.4l.05-.05A1.4 1.4 0 0 0 4 13a1.4 1.4 0 0 0-1.28-.85H2.6a1.7 1.7 0 1 1 0-3.4h.06A1.4 1.4 0 0 0 4 7.9a1.4 1.4 0 0 0-.28-1.54l-.05-.05a1.7 1.7 0 1 1 2.4-2.4l.05.05A1.4 1.4 0 0 0 7.66 4.2a1.4 1.4 0 0 0 .85-1.28V2.8a1.7 1.7 0 1 1 3.4 0v.06a1.4 1.4 0 0 0 .85 1.28 1.4 1.4 0 0 0 1.54-.28l.05-.05a1.7 1.7 0 1 1 2.4 2.4l-.05.05A1.4 1.4 0 0 0 16.5 7.9a1.4 1.4 0 0 0 1.28.85h.06a1.7 1.7 0 1 1 0 3.4h-.06a1.4 1.4 0 0 0-1.28.85z"/></svg></button>
             </div>
             <a id="download" class="download-btn" href="#" aria-disabled="true"><svg class="download-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.75v9.5m0 0 3.75-3.75M10 12.25 6.25 8.5M3.5 13.75v3h13v-3" /></svg>Download Excel</a>
             <span id="showing-count" class="showing-count">No rows</span>
@@ -272,7 +300,7 @@
   <dialog id="clear-history-dialog" class="confirm-dialog" aria-labelledby="clear-history-title" aria-describedby="clear-history-description">
     <div class="confirm-content">
       <h2 id="clear-history-title">Clear all recent results?</h2>
-      <p id="clear-history-description">This removes all in-memory search records from the dashboard’s Recent results and clears the selected result view. Files in <code>output/</code>, including saved CSV and Excel exports, will not be deleted.</p>
+      <p id="clear-history-description">This removes all search records from the dashboard’s Recent results and clears the selected result view.</p>
       <p id="clear-history-error" class="confirm-error" role="alert" hidden></p>
       <div class="confirm-actions">
         <button id="cancel-clear-history" type="button">Cancel</button>
@@ -281,20 +309,129 @@
     </div>
   </dialog>
 
+  <dialog id="kpi-settings-dialog" class="confirm-dialog kpi-settings-dialog" aria-labelledby="kpi-settings-title">
+    <div class="confirm-content">
+      <h2 id="kpi-settings-title" style="display: flex; align-items: center; gap: 8px;">
+        <svg class="btn-icon stroke" viewBox="0 0 20 20" aria-hidden="true" style="margin: 0; color: var(--accent);"><circle cx="10" cy="10" r="3"/><path d="M16.5 13a1.4 1.4 0 0 0 .28 1.54l.05.05a1.7 1.7 0 1 1-2.4 2.4l-.05-.05a1.4 1.4 0 0 0-1.54-.28 1.4 1.4 0 0 0-.85 1.28V18a1.7 1.7 0 1 1-3.4 0v-.06a1.4 1.4 0 0 0-.85-1.28 1.4 1.4 0 0 0-1.54.28l-.05.05a1.7 1.7 0 1 1-2.4-2.4l.05-.05A1.4 1.4 0 0 0 4 13a1.4 1.4 0 0 0-1.28-.85H2.6a1.7 1.7 0 1 1 0-3.4h.06A1.4 1.4 0 0 0 4 7.9a1.4 1.4 0 0 0-.28-1.54l-.05-.05a1.7 1.7 0 1 1 2.4-2.4l.05.05A1.4 1.4 0 0 0 7.66 4.2a1.4 1.4 0 0 0 .85-1.28V2.8a1.7 1.7 0 1 1 3.4 0v.06a1.4 1.4 0 0 0 .85 1.28 1.4 1.4 0 0 0 1.54-.28l.05-.05a1.7 1.7 0 1 1 2.4 2.4l-.05.05A1.4 1.4 0 0 0 16.5 7.9a1.4 1.4 0 0 0 1.28.85h.06a1.7 1.7 0 1 1 0 3.4h-.06a1.4 1.4 0 0 0-1.28.85z"/></svg>
+        <span>KPI Thresholds Setup</span>
+        <button id="kpi-info" class="kpi-info-button" type="button" aria-label="Show screening criteria" title="Show screening criteria" aria-expanded="false" style="margin-left: 2px;">i</button>
+      </h2>
+      <p style="margin: 4px 0 14px; color: var(--muted); font-size: 12px;">Configure thresholds for qualifying leads. You can re-run KPI anytime to re-evaluate listings.</p>
+
+      <div id="kpi-tooltip" class="kpi-tooltip" role="region" aria-label="KPI criteria details" hidden>
+        <strong class="kpi-tooltip-title">Maps-only screening criteria</strong>
+        <ul class="kpi-tooltip-list">
+          <li><strong class="kpi-label accepted">Accepted:</strong> The Maps category explicitly identifies property management. This is a provisional shortlist candidate, not verified metering-customer fit.</li>
+          <li><strong class="kpi-label rejected">Rejected:</strong> The Maps category is clearly unrelated to property management and the name has no conflicting property-management signal. Rows are retained, not deleted.</li>
+          <li><strong class="kpi-label review">Needs review:</strong> Missing or ambiguous categories, broker-only/adjacent services, name-only matches, or conflicting listing signals need human review.</li>
+          <li><strong>Berlin relevance:</strong> Distinguish a Berlin address from search-query context or a name signal. A street-only address, search query or Berlin-named street does not verify Berlin coverage.</li>
+          <li><strong>Contact details:</strong> Website and phone presence are separate completeness KPIs, not acceptance rules. Website links and extracted emails remain unverified.</li>
+          <li><strong>Unknowns:</strong> Portfolio size and metering-service fit remain Unknown. Ratings/review counts never determine qualification, scale or buying intent.</li>
+        </ul>
+        <div class="kpi-tooltip-colors" aria-label="Row color key">
+          <span><i class="kpi-swatch accepted" aria-hidden="true"></i>Green - Accepted candidate</span>
+          <span><i class="kpi-swatch rejected" aria-hidden="true"></i>Red - Rejected</span>
+          <span><i class="kpi-swatch review" aria-hidden="true"></i>Neutral - Needs review</span>
+        </div>
+      </div>
+
+      <div class="kpi-form-grid">
+        <div class="kpi-form-row">
+          <div class="kpi-form-info">
+            <label for="threshold-min-rating">Minimum Google Rating</label>
+            <span class="kpi-form-sub">Flag candidates with rating below this threshold as Needs review (0.0 = any).</span>
+          </div>
+          <input id="threshold-min-rating" type="number" min="0" max="5" step="0.1" value="3.0" class="kpi-num-input">
+        </div>
+
+        <div class="kpi-form-row">
+          <div class="kpi-form-info">
+            <label for="threshold-min-reviews">Minimum Reviews</label>
+            <span class="kpi-form-sub">Require at least this many Google reviews (0 = any).</span>
+          </div>
+          <input id="threshold-min-reviews" type="number" min="0" step="1" value="10" class="kpi-num-input">
+        </div>
+
+        <div class="kpi-form-row">
+          <div class="kpi-form-info">
+            <label for="threshold-require-website">Require Website</label>
+            <span class="kpi-form-sub">Only accept listing if a website URL is present.</span>
+          </div>
+          <input id="threshold-require-website" type="checkbox" class="kpi-checkbox" checked>
+        </div>
+
+        <div class="kpi-form-row">
+          <div class="kpi-form-info">
+            <label for="threshold-require-phone">Require Phone Number</label>
+            <span class="kpi-form-sub">Only accept listing if a telephone number is present.</span>
+          </div>
+          <input id="threshold-require-phone" type="checkbox" class="kpi-checkbox">
+        </div>
+
+        <div class="kpi-form-row">
+          <div class="kpi-form-info">
+            <label for="threshold-require-email">Require Extracted Email</label>
+            <span class="kpi-form-sub">Only accept listing if an email was discovered during enrichment.</span>
+          </div>
+          <input id="threshold-require-email" type="checkbox" class="kpi-checkbox" checked>
+        </div>
+
+        <div class="kpi-form-row">
+          <div class="kpi-form-info">
+            <label for="threshold-strict-berlin">Strict Berlin Postal Address</label>
+            <span class="kpi-form-sub">Flag listing if postal address does not explicitly verify Berlin.</span>
+          </div>
+          <input id="threshold-strict-berlin" type="checkbox" class="kpi-checkbox" checked>
+        </div>
+
+        <div class="kpi-form-row">
+          <div class="kpi-form-info">
+            <label for="threshold-accept-name">Accept on Name Match</label>
+            <span class="kpi-form-sub">Accept candidate if property-management keywords appear in business name.</span>
+          </div>
+          <input id="threshold-accept-name" type="checkbox" class="kpi-checkbox" checked>
+        </div>
+      </div>
+
+      <div class="confirm-actions">
+        <button id="reset-kpi-settings" type="button" style="margin-right: auto;">Reset defaults</button>
+        <button id="cancel-kpi-settings" type="button">Cancel</button>
+        <button id="save-run-kpi-settings" class="download-btn" type="button" style="background: var(--accent); color: #052317; border-color: var(--accent);">Save &amp; Run KPI</button>
+      </div>
+    </div>
+  </dialog>
+
   <script>
-    const state = { currentJob: null, currentJobData: null, pollTimer: null, history: [], pending: false, searchPending: false, renderedJobId: null, resultsRevision: null, emailStates: new Map(), kpiPending: false };
+    const DEFAULT_KPI_THRESHOLDS = {
+      min_rating: 3.0,
+      min_reviews: 10,
+      require_website: true,
+      require_phone: false,
+      require_email: true,
+      strict_berlin: true,
+      accept_name_match: true
+    };
+    const state = { currentJob: null, currentJobData: null, pollTimer: null, history: [], pending: false, searchPending: false, renderedJobId: null, resultsRevision: null, emailStates: new Map(), kpiPending: false, kpiThresholds: {...DEFAULT_KPI_THRESHOLDS} };
     const form = document.getElementById('search-form');
     const submitButton = document.getElementById('submit-button');
-    const statusDot = document.getElementById('status-dot');
-    const statusTitle = document.getElementById('status-title');
-    const statusDetail = document.getElementById('status-detail');
     const statusAlert = document.getElementById('status-alert');
     const tableContainer = document.getElementById('table-container');
     const filterInput = document.getElementById('filter');
     const downloadLink = document.getElementById('download');
     const getEmailsButton = document.getElementById('get-emails');
-    const pauseEmailsButton = document.getElementById('pause-emails');
     const kpiButton = document.getElementById('run-kpi');
+    const kpiSettingsButton = document.getElementById('kpi-settings-btn');
+    const kpiSettingsDialog = document.getElementById('kpi-settings-dialog');
+    const cancelKpiSettingsButton = document.getElementById('cancel-kpi-settings');
+    const resetKpiSettingsButton = document.getElementById('reset-kpi-settings');
+    const saveRunKpiSettingsButton = document.getElementById('save-run-kpi-settings');
+    const inputMinRating = document.getElementById('threshold-min-rating');
+    const inputMinReviews = document.getElementById('threshold-min-reviews');
+    const inputRequireWebsite = document.getElementById('threshold-require-website');
+    const inputRequirePhone = document.getElementById('threshold-require-phone');
+    const inputRequireEmail = document.getElementById('threshold-require-email');
+    const inputStrictBerlin = document.getElementById('threshold-strict-berlin');
+    const inputAcceptName = document.getElementById('threshold-accept-name');
     const kpiInfoButton = document.getElementById('kpi-info');
     const kpiTooltip = document.getElementById('kpi-tooltip');
     const kpiActionWrap = document.getElementById('kpi-action-wrap');
@@ -308,48 +445,48 @@
       kpiInfoButton.setAttribute('aria-expanded', String(open));
     }
 
-    kpiActionWrap.addEventListener('pointerenter', event => {
-      if (event.pointerType !== 'touch') setKpiTooltipOpen(true);
-    });
-    kpiActionWrap.addEventListener('pointerleave', event => {
-      if (event.pointerType !== 'touch' && !kpiActionWrap.contains(document.activeElement)) setKpiTooltipOpen(false);
-    });
-    kpiActionWrap.addEventListener('focusin', () => setKpiTooltipOpen(true));
-    kpiActionWrap.addEventListener('focusout', event => {
-      if (!kpiActionWrap.contains(event.relatedTarget)) setKpiTooltipOpen(false);
-    });
-    kpiInfoButton.addEventListener('click', () => {
-      if (!window.matchMedia('(hover: hover)').matches) setKpiTooltipOpen(kpiTooltip.hidden);
-    });
-    document.addEventListener('pointerdown', event => {
-      if (!kpiTooltip.hidden && !kpiActionWrap.contains(event.target)) setKpiTooltipOpen(false);
+    kpiInfoButton.addEventListener('click', event => {
+      event.preventDefault();
+      setKpiTooltipOpen(kpiTooltip.hidden);
     });
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape' && !kpiTooltip.hidden) {
         setKpiTooltipOpen(false);
-        kpiInfoButton.blur();
+        kpiInfoButton.focus();
+        event.stopPropagation();
       }
     });
 
     const EMAIL_ACTIVE_STATUSES = ['queued', 'running', 'pausing', 'paused', 'resuming'];
 
+    const ICONS = {
+      mail: `<svg class="btn-icon stroke" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="4.5" width="15" height="11" rx="1.5"/><path d="m3 5.5 7 5 7-5"/></svg>`,
+      pause: `<svg class="btn-icon fill" viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="4" width="3.5" height="12" rx="1"/><rect x="11.5" y="4" width="3.5" height="12" rx="1"/></svg>`,
+      resume: `<svg class="btn-icon fill" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4.5a1 1 0 0 1 1.55-.83l9 5.5a1 1 0 0 1 0 1.66l-9 5.5A1 1 0 0 1 6 15.5v-11z"/></svg>`,
+      check: `<svg class="btn-icon stroke" viewBox="0 0 20 20" aria-hidden="true" style="stroke-width: 2.4; color: var(--accent);"><path d="M4.5 10.5 8 14 15.5 6.5"/></svg>`
+    };
+
     function isBusy(job) {
       return job && (['queued', 'running'].includes(job.status) || EMAIL_ACTIVE_STATUSES.includes(job.enrichment_status));
     }
 
-    function setButtonLabel(button, label, {check = false, loading = false} = {}) {
+    function setButtonLabel(button, label, {check = false, loading = false, icon = null} = {}) {
       button.replaceChildren();
       if (check) {
-        const icon = document.createElement('span');
-        icon.className = 'stage-check';
-        icon.setAttribute('aria-hidden', 'true');
-        icon.textContent = '✓';
-        button.appendChild(icon);
+        const iconEl = document.createElement('span');
+        iconEl.className = 'stage-check';
+        iconEl.setAttribute('aria-hidden', 'true');
+        iconEl.textContent = '✓';
+        button.appendChild(iconEl);
       } else if (loading) {
         const spinner = document.createElement('span');
         spinner.className = 'button-spinner';
         spinner.setAttribute('aria-hidden', 'true');
         button.appendChild(spinner);
+      } else if (icon && ICONS[icon]) {
+        const temp = document.createElement('span');
+        temp.innerHTML = ICONS[icon];
+        if (temp.firstElementChild) button.appendChild(temp.firstElementChild);
       }
       button.appendChild(document.createTextNode(label));
     }
@@ -364,19 +501,54 @@
       const searching = state.searchPending || ['queued', 'running'].includes(job?.status);
       submitButton.disabled = Boolean(busy);
       setButtonLabel(submitButton, searching ? 'Searching…' : 'Search', {loading: searching});
-      getEmailsButton.disabled = Boolean(busy || !job || !['completed', 'partial'].includes(job.status)
-        || !(job.results || []).length
-        || emailComplete || emailActive);
-      setButtonLabel(getEmailsButton, emailActive ? 'Getting emails…' : emailComplete ? 'Email stage done' : 'Get emails', {check: emailComplete});
-      pauseEmailsButton.hidden = !emailActive;
-      pauseEmailsButton.disabled = Boolean(state.pending || !['queued', 'running', 'paused'].includes(emailStatus));
-      pauseEmailsButton.textContent = emailStatus === 'paused' ? 'Resume' : emailStatus === 'pausing' ? 'Pausing…'
-        : emailStatus === 'resuming' ? 'Resuming…' : 'Pause';
-      pauseEmailsButton.title = emailStatus === 'paused' ? 'Resume email fetching' : 'Pause after the current listing finishes';
+      const canActOnEmails = Boolean(job && ['completed', 'partial'].includes(job.status) && (job.results || []).length);
+      const isTransitioning = state.pending || emailStatus === 'pausing' || emailStatus === 'resuming';
+      getEmailsButton.disabled = Boolean(!canActOnEmails || emailComplete || isTransitioning);
+      getEmailsButton.classList.remove('btn-running', 'btn-paused', 'btn-done');
+
+      if (emailComplete) {
+        getEmailsButton.classList.add('btn-done');
+        setButtonLabel(getEmailsButton, 'Email', {icon: 'check'});
+        getEmailsButton.title = 'Email fetching completed';
+      } else if (emailStatus === 'pausing') {
+        getEmailsButton.classList.add('btn-running');
+        setButtonLabel(getEmailsButton, 'Pausing…', {loading: true});
+        getEmailsButton.title = 'Pausing after the current listing finishes…';
+      } else if (emailStatus === 'resuming') {
+        getEmailsButton.classList.add('btn-paused');
+        setButtonLabel(getEmailsButton, 'Resuming…', {loading: true});
+        getEmailsButton.title = 'Resuming email fetching…';
+      } else if (emailStatus === 'paused') {
+        getEmailsButton.classList.add('btn-paused');
+        setButtonLabel(getEmailsButton, 'Email', {icon: 'resume'});
+        getEmailsButton.title = 'Paused — click to resume email fetching';
+      } else if (emailActive) {
+        getEmailsButton.classList.add('btn-running');
+        setButtonLabel(getEmailsButton, 'Email', {icon: 'pause'});
+        getEmailsButton.title = 'Running — click to pause email fetching';
+      } else {
+        setButtonLabel(getEmailsButton, 'Email', {icon: 'mail'});
+        getEmailsButton.title = 'Fetch public emails and social links for these listings';
+      }
+      kpiSettingsButton.disabled = Boolean(!canActOnEmails || busy);
+      const hasCustomThresholds = Boolean(
+        state.kpiThresholds.min_rating > 0 ||
+        state.kpiThresholds.min_reviews > 0 ||
+        state.kpiThresholds.require_website ||
+        state.kpiThresholds.require_phone ||
+        state.kpiThresholds.require_email ||
+        state.kpiThresholds.strict_berlin ||
+        state.kpiThresholds.accept_name_match
+      );
+      kpiSettingsButton.classList.toggle('has-thresholds', hasCustomThresholds);
+
       kpiButton.disabled = Boolean(busy || !job || !['completed', 'partial'].includes(job.status)
-        || !(job.results || []).length || !emailComplete || kpiComplete);
-      setButtonLabel(kpiButton, state.kpiPending ? 'Running KPI…' : kpiComplete ? 'KPI complete' : 'Run KPI', {check: kpiComplete});
-      kpiButton.title = job && job.enrichment_status === 'completed' ? 'Apply the displayed Maps-only screening criteria' : 'Finish Get emails first';
+        || !(job.results || []).length || !emailComplete);
+      const kpiLabel = state.kpiPending ? 'Running KPI…' : (kpiComplete ? 'Re-run KPI' : 'Run KPI');
+      setButtonLabel(kpiButton, kpiLabel, {icon: (kpiComplete && !state.kpiPending) ? 'check' : null});
+      kpiButton.title = !emailComplete
+        ? 'Finish Email stage first'
+        : (kpiComplete ? 'Click to re-run KPI qualification (or configure thresholds via setup icon)' : 'Apply Maps KPI qualification criteria');
       const downloadReady = Boolean(job && emailComplete && kpiComplete);
       downloadLink.href = downloadReady ? (job.excel_download_url || '#') : '#';
       downloadLink.setAttribute('aria-disabled', String(!downloadReady));
@@ -385,67 +557,134 @@
     }
 
     getEmailsButton.addEventListener('click', async () => {
-      if (!state.currentJob || getEmailsButton.disabled) return;
-      state.pending = true;
-      updateControls();
-      try {
-        const jobId = state.currentJob;
-        await requestJson('/api/jobs/' + encodeURIComponent(jobId) + '/emails', {method: 'POST'});
-        state.emailStates.delete(jobId);
-        await pollJob(jobId);
-      } catch (error) {
-        setStatus('failed', 'Could not get emails', 'Your existing results are unchanged.', error.message, true);
-      } finally {
-        state.pending = false;
-        updateControls();
-      }
-    });
-
-    pauseEmailsButton.addEventListener('click', async () => {
       const job = state.currentJobData;
-      if (!job || pauseEmailsButton.disabled) return;
+      if (!state.currentJob || getEmailsButton.disabled || state.pending) return;
       const jobId = state.currentJob;
-      const action = job.enrichment_status === 'paused' ? 'resume' : 'pause';
-      state.pending = true;
-      updateControls();
-      try {
-        await requestJson('/api/jobs/' + encodeURIComponent(jobId) + '/emails/' + action, {method: 'POST'});
-        await pollJob(jobId);
-      } catch (error) {
-        setStatus('failed', action === 'pause' ? 'Could not pause email fetching' : 'Could not resume email fetching', '', error.message, true);
-      } finally {
-        state.pending = false;
+      const emailStatus = job?.enrichment_status || 'not_started';
+
+      if (emailStatus === 'paused') {
+        state.pending = true;
         updateControls();
+        try {
+          await requestJson('/api/jobs/' + encodeURIComponent(jobId) + '/emails/resume', {method: 'POST'});
+          await pollJob(jobId);
+        } catch (error) {
+          showError('Could not resume email fetching: ' + error.message);
+        } finally {
+          state.pending = false;
+          updateControls();
+        }
+      } else if (['queued', 'running'].includes(emailStatus)) {
+        state.pending = true;
+        updateControls();
+        try {
+          await requestJson('/api/jobs/' + encodeURIComponent(jobId) + '/emails/pause', {method: 'POST'});
+          await pollJob(jobId);
+        } catch (error) {
+          showError('Could not pause email fetching: ' + error.message);
+        } finally {
+          state.pending = false;
+          updateControls();
+        }
+      } else if (emailStatus === 'not_started' || emailStatus === 'failed') {
+        state.pending = true;
+        updateControls();
+        try {
+          await requestJson('/api/jobs/' + encodeURIComponent(jobId) + '/emails', {method: 'POST'});
+          state.emailStates.delete(jobId);
+          await pollJob(jobId);
+        } catch (error) {
+          showError('Could not get emails: ' + error.message);
+        } finally {
+          state.pending = false;
+          updateControls();
+        }
       }
     });
 
-    kpiButton.addEventListener('click', async () => {
+    async function executeKpi(customThresholds = null) {
       if (!state.currentJob || kpiButton.disabled) return;
       const jobId = state.currentJob;
       state.pending = true;
       state.kpiPending = true;
       updateControls();
       try {
-        const job = await requestJson('/api/jobs/' + encodeURIComponent(jobId) + '/kpi', {method: 'POST'});
+        const payload = customThresholds || state.kpiThresholds;
+        const job = await requestJson('/api/jobs/' + encodeURIComponent(jobId) + '/kpi', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if (job.kpi_thresholds) {
+          state.kpiThresholds = {...state.kpiThresholds, ...job.kpi_thresholds};
+        }
         if (state.currentJob === jobId) renderJob(job);
         await loadHistory();
       } catch (error) {
-        setStatus('failed', 'Could not run KPI', 'Raw and email-stage exports are unchanged.', error.message, true);
+        showError('Could not run KPI: ' + error.message);
       } finally {
         state.pending = false;
         state.kpiPending = false;
         updateControls();
       }
+    }
+
+    kpiButton.addEventListener('click', () => executeKpi());
+
+    function syncThresholdInputs() {
+      inputMinRating.value = state.kpiThresholds.min_rating || 0.0;
+      inputMinReviews.value = state.kpiThresholds.min_reviews || 0;
+      inputRequireWebsite.checked = Boolean(state.kpiThresholds.require_website);
+      inputRequirePhone.checked = Boolean(state.kpiThresholds.require_phone);
+      inputRequireEmail.checked = Boolean(state.kpiThresholds.require_email);
+      inputStrictBerlin.checked = Boolean(state.kpiThresholds.strict_berlin);
+      inputAcceptName.checked = Boolean(state.kpiThresholds.accept_name_match);
+    }
+
+    kpiSettingsButton.addEventListener('click', () => {
+      setKpiTooltipOpen(false);
+      syncThresholdInputs();
+      kpiSettingsDialog.showModal();
     });
 
-    function setStatus(status, title, detail, message = '', isError = false) {
-      document.getElementById('status-card').hidden = false;
-      statusDot.className = 'status-dot' + (status ? ' ' + status : '');
-      statusTitle.textContent = title;
-      statusDetail.textContent = detail || '';
-      statusAlert.hidden = !message;
+    cancelKpiSettingsButton.addEventListener('click', () => {
+      kpiSettingsDialog.close();
+    });
+
+    resetKpiSettingsButton.addEventListener('click', () => {
+      state.kpiThresholds = {...DEFAULT_KPI_THRESHOLDS};
+      syncThresholdInputs();
+    });
+
+    saveRunKpiSettingsButton.addEventListener('click', async () => {
+      state.kpiThresholds = {
+        min_rating: Math.max(0, Math.min(5, parseFloat(inputMinRating.value) || 0)),
+        min_reviews: Math.max(0, parseInt(inputMinReviews.value, 10) || 0),
+        require_website: inputRequireWebsite.checked,
+        require_phone: inputRequirePhone.checked,
+        require_email: inputRequireEmail.checked,
+        strict_berlin: inputStrictBerlin.checked,
+        accept_name_match: inputAcceptName.checked
+      };
+      kpiSettingsDialog.close();
+      await executeKpi(state.kpiThresholds);
+    });
+
+    kpiSettingsDialog.addEventListener('click', (event) => {
+      const rect = kpiSettingsDialog.getBoundingClientRect();
+      const isInDialog = (rect.top <= event.clientY && event.clientY <= rect.top + rect.height
+        && rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
+      if (!isInDialog) kpiSettingsDialog.close();
+    });
+
+    function showError(message) {
+      if (!message) {
+        statusAlert.hidden = true;
+        statusAlert.textContent = '';
+        return;
+      }
       statusAlert.textContent = message;
-      statusAlert.className = 'alert' + (isError ? ' error' : '');
+      statusAlert.hidden = false;
     }
 
     function friendlyStatus(status) {
@@ -464,7 +703,7 @@
       state.pending = true;
       state.searchPending = true;
       updateControls();
-      statusAlert.hidden = true;
+      showError('');
       try {
         const payload = {
           query: document.getElementById('query').value
@@ -477,7 +716,7 @@
         state.currentJob = job.job_id;
         await pollJob(job.job_id);
       } catch (error) {
-        setStatus('failed', 'Could not start search', 'Check the query and try again.', error.message, true);
+        showError('Could not start search: ' + error.message);
       } finally {
         state.pending = false;
         state.searchPending = false;
@@ -500,7 +739,7 @@
         }
       } catch (error) {
         submitButton.disabled = false;
-        setStatus('failed', 'Could not load search status', 'The server may have restarted.', error.message, true);
+        showError('Could not load search status: ' + error.message);
       }
     }
 
@@ -508,13 +747,15 @@
       const jobChanged = state.currentJob !== job.job_id;
       state.currentJob = job.job_id;
       state.currentJobData = job;
-      if (['queued', 'running', 'failed'].includes(job.status)) {
-        setStatus(job.status, friendlyStatus(job.status), job.query, job.error || '', job.status === 'failed');
+      if (job.kpi_thresholds) {
+        state.kpiThresholds = {...state.kpiThresholds, ...job.kpi_thresholds};
+      }
+      if (job.status === 'failed') {
+        showError(job.error || 'Search failed');
       } else if (job.enrichment_status === 'failed') {
-        setStatus('failed', 'Email lookup stopped', '', job.enrichment_error || '', true);
+        showError(job.enrichment_error || 'Email lookup stopped');
       } else {
-        // Email progress belongs in its row, not a separate summary/activity panel.
-        document.getElementById('status-card').hidden = true;
+        showError('');
       }
       document.getElementById('results-title').textContent = 'Results: ' + job.query;
       document.getElementById('results-subtitle').textContent = job.output_file ? 'Saved locally as ' + job.output_file : 'Search results from the standalone Maps collector.';
@@ -768,14 +1009,10 @@
         state.resultsRevision = null;
         state.emailStates.clear();
         state.kpiPending = false;
+        state.kpiThresholds = {...DEFAULT_KPI_THRESHOLDS};
         filterInput.value = '';
         filterInput.disabled = true;
-        document.getElementById('status-card').hidden = true;
-        statusDot.className = 'status-dot';
-        statusTitle.textContent = '';
-        statusDetail.textContent = '';
-        statusAlert.hidden = true;
-        statusAlert.textContent = '';
+        showError('');
         document.getElementById('results-title').textContent = 'Scraper results';
         document.getElementById('results-subtitle').textContent = 'All fields from the selected search will appear here.';
         document.getElementById('total-count').textContent = '0';
@@ -793,6 +1030,11 @@
         renderHistory();
         updateControls();
         clearHistoryDialog.close();
+        const notice = document.getElementById('clear-notice');
+        if (notice) {
+          notice.hidden = false;
+          setTimeout(() => { notice.hidden = true; }, 4000);
+        }
       } catch (error) {
         clearHistoryError.textContent = error.message;
         clearHistoryError.hidden = false;
