@@ -39,9 +39,14 @@
 
 
 
-    .layout { display: grid; grid-template-columns: minmax(275px, 350px) minmax(0, 1fr); align-items: start; gap: 18px; }
+    .layout { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); align-items: start; gap: 18px; }
     .card { border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 94%, transparent); border-radius: 16px; box-shadow: 0 16px 45px #02071140; }
-    .search-card { padding: 20px; }
+    .search-card { padding: 20px; margin-bottom: 18px; }
+    #search-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px 14px; }
+    .search-field { min-width: 0; }
+    .search-field label { margin-top: 0; }
+    #search-form .query-hint { grid-column: 1 / -1; margin: 0; }
+    #search-form .primary-btn { grid-column: 2; grid-row: 1; width: auto; min-width: 160px; margin-top: 0; padding: 0 20px; }
     .card-title { margin: 0; font-size: 16px; letter-spacing: -.01em; }
     .card-subtitle { margin: 5px 0 18px; color: var(--muted); font-size: 12px; }
     label { display: block; margin: 14px 0 6px; color: #cad7e8; font-size: 12px; font-weight: 650; }
@@ -58,11 +63,11 @@
     .primary-btn:hover:not(:disabled) { background: #a0f0cb; transform: translateY(-1px); }
     .primary-btn:disabled { opacity: .55; cursor: wait; }
 
-    .side-section { margin-top: 14px; padding: 17px 18px; }
+    .side-section { padding: 17px 18px; }
     .side-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .side-heading h2 { margin: 0; font-size: 13px; }
     .refresh-btn { border: 0; background: none; color: var(--blue); font: inherit; font-size: 11px; cursor: pointer; }
-    .history { display: grid; gap: 7px; margin-top: 12px; }
+    .history { display: grid; gap: 7px; margin-top: 12px; max-height: min(65vh, 700px); overflow-y: auto; }
     .history-item { width: 100%; padding: 9px 10px; border: 1px solid transparent; border-radius: 9px; background: #0d1728; color: var(--text); text-align: left; cursor: pointer; }
     .history-item:hover, .history-item.active { border-color: #37506f; background: var(--panel-soft); }
     .history-query { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 650; }
@@ -81,6 +86,12 @@
     .status-detail { color: var(--muted); font-size: 12px; margin: 3px 0 0 19px; overflow-wrap: anywhere; }
     .alert { margin-top: 12px; padding: 10px 12px; border-radius: 9px; color: var(--warning); background: #3a2b173b; border: 1px solid #6b4a273d; font-size: 12px; }
     .alert.error { color: var(--danger); background: #3a17173b; border-color: #6b27273d; }
+    .email-fetch-state { display: flex; align-items: center; gap: 6px; margin-top: 3px; color: var(--muted); font-size: 11px; font-weight: 500; }
+    .email-fetch-state.fetching { color: var(--accent); }
+    .email-fetch-state.fetching::before { content: ''; width: 10px; height: 10px; flex: none; border: 2px solid #75e0b040; border-top-color: var(--accent); border-radius: 50%; animation: email-spin .8s linear infinite; }
+    .email-fetch-state.error { color: var(--warning); }
+    @keyframes email-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .email-fetch-state.fetching::before { animation: none; } }
     .results-card { overflow: hidden; }
     .results-head { padding: 18px 20px 13px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
     .results-head h2 { margin: 0; font-size: 16px; }
@@ -108,7 +119,7 @@
       .shell { width: min(100% - 24px, 720px); padding-top: 16px; }
       .topbar { margin-bottom: 28px; }
       .layout { grid-template-columns: 1fr; }
-      .side-section { margin-top: 12px; }
+      .history { max-height: 180px; }
       .results-head { padding: 15px 14px 12px; }
       .table-tools { padding: 0 14px 12px; flex-wrap: wrap; }
       .showing-count { margin-left: 0; }
@@ -118,6 +129,8 @@
     }
     @media (max-width: 480px) {
       .shell { width: calc(100% - 18px); }
+      #search-form { grid-template-columns: 1fr; }
+      #search-form .primary-btn { grid-column: auto; grid-row: auto; width: 100%; }
 
       .stats { gap: 5px; }
       .stat { min-width: 0; padding: 7px; }
@@ -135,22 +148,23 @@
       </div>
     </header>
 
+    <section class="card search-card" aria-label="Google Maps search">
+      <h2 class="card-title">Start a Google Maps search</h2>
+      <p class="card-subtitle">Fetch business listings first. Get website emails separately from the results toolbar.</p>
+      <form id="search-form">
+        <div class="search-field">
+          <label for="query">Search query</label>
+          <input id="query" name="query" type="text" maxlength="200" required value="Hausverwaltung Berlin" autocomplete="off" placeholder="e.g. WEG-Verwaltung Berlin">
+        </div>
+        <p class="query-hint">Try: Hausverwaltung, WEG-Verwaltung, or Mietverwaltung + a Berlin district.</p>
+        <button id="submit-button" class="primary-btn" type="submit">Fetch raw data</button>
+      </form>
+    </section>
+
     <div class="layout">
-      <aside>
-        <section class="card search-card">
-          <h2 class="card-title">Start a Google Maps search</h2>
-          <p class="card-subtitle">Fetch business listings first. Get website emails separately from the results toolbar.</p>
-          <form id="search-form">
-            <label for="query">Search query</label>
-            <input id="query" name="query" type="text" maxlength="200" required value="Hausverwaltung Berlin" autocomplete="off" placeholder="e.g. WEG-Verwaltung Berlin">
-            <p class="query-hint">Try: Hausverwaltung, WEG-Verwaltung, or Mietverwaltung + a Berlin district.</p>
-
-            <button id="submit-button" class="primary-btn" type="submit">Fetch raw data</button>
-          </form>
-        </section>
-
+      <aside aria-label="Recent results">
         <section class="card side-section">
-          <div class="side-heading"><h2>Recent searches</h2><button id="refresh-history" class="refresh-btn" type="button">Refresh</button></div>
+          <div class="side-heading"><h2>Recent results</h2><button id="refresh-history" class="refresh-btn" type="button">Refresh</button></div>
           <div id="history" class="history"><p class="empty-history">No searches yet.</p></div>
         </section>
       </aside>
@@ -187,7 +201,7 @@
   </main>
 
   <script>
-    const state = { currentJob: null, currentJobData: null, pollTimer: null, history: [], pending: false };
+    const state = { currentJob: null, currentJobData: null, pollTimer: null, history: [], pending: false, renderedJobId: null, resultsRevision: null, emailStates: new Map() };
     const form = document.getElementById('search-form');
     const submitButton = document.getElementById('submit-button');
     const statusDot = document.getElementById('status-dot');
@@ -221,6 +235,7 @@
       try {
         const jobId = state.currentJob;
         await requestJson('/api/jobs/' + encodeURIComponent(jobId) + '/emails', {method: 'POST'});
+        state.emailStates.delete(jobId);
         await pollJob(jobId);
       } catch (error) {
         setStatus('failed', 'Could not get emails', 'Your existing results are unchanged.', error.message, true);
@@ -284,7 +299,7 @@
         updateControls();
         if (isBusy(job)) {
           submitButton.disabled = true;
-          state.pollTimer = setTimeout(() => pollJob(jobId), 1400);
+          state.pollTimer = setTimeout(() => pollJob(jobId), ['queued', 'running'].includes(job.enrichment_status) ? 500 : 1400);
         } else {
           submitButton.disabled = false;
         }
@@ -298,12 +313,14 @@
       const jobChanged = state.currentJob !== job.job_id;
       state.currentJob = job.job_id;
       state.currentJobData = job;
-      const emailBusy = ['queued', 'running'].includes(job.enrichment_status);
-      const label = emailBusy ? 'Getting emails' : job.enrichment_status === 'failed' ? 'Email lookup failed'
-        : job.enrichment_status === 'completed' ? 'Emails fetched' : friendlyStatus(job.status);
-      const detail = `${job.query} · ${job.result_count} listing(s) · ${job.email_count} listing(s) with an extracted email`;
-      let message = job.enrichment_error || job.warning || job.error || '';
-      setStatus(emailBusy ? 'running' : job.status, label, detail, message, job.status === 'failed' || job.enrichment_status === 'failed');
+      if (['queued', 'running', 'failed'].includes(job.status)) {
+        setStatus(job.status, friendlyStatus(job.status), job.query, job.error || '', job.status === 'failed');
+      } else if (job.enrichment_status === 'failed') {
+        setStatus('failed', 'Email lookup stopped', '', job.enrichment_error || '', true);
+      } else {
+        // Email progress belongs in its row, not a separate summary/activity panel.
+        document.getElementById('status-card').hidden = true;
+      }
       document.getElementById('results-title').textContent = 'Results: ' + job.query;
       document.getElementById('results-subtitle').textContent = job.output_file ? 'Saved locally as ' + job.output_file : 'Search results from the standalone Maps collector.';
       document.getElementById('total-count').textContent = job.result_count;
@@ -313,9 +330,71 @@
       downloadLink.setAttribute('aria-disabled', job.status === 'completed' || job.status === 'partial' ? 'false' : 'true');
       filterInput.disabled = !(job.results && job.results.length);
       if (jobChanged) filterInput.value = '';
-      renderTable(job.fields || [], job.results || []);
+      const revision = job.results_revision ?? JSON.stringify(job.results || []);
+      if (state.renderedJobId !== job.job_id || state.resultsRevision !== revision) {
+        renderTable(job.fields || [], job.results || []);
+        state.renderedJobId = job.job_id;
+        state.resultsRevision = revision;
+      }
+      renderEmailCells(job);
       renderHistoryActive(job.job_id);
       updateControls();
+    }
+
+    function renderEmailCells(job) {
+      // Keep observed row outcomes while polling, even as the recent-event window rolls.
+      // Never put presentation labels into row.email or the exported CSV.
+      const observed = state.emailStates.get(job.job_id) || new Map();
+      state.emailStates.set(job.job_id, observed);
+      for (const event of job.enrichment_events || []) {
+        const index = Number(event.current) - 1;
+        if (!Number.isInteger(index) || index < 0) continue;
+        const previous = event.phase === 'business_start' ? {} : observed.get(index) || {};
+        observed.set(index, {...previous, ...event});
+      }
+      const progress = job.enrichment_progress || {};
+      const busy = ['queued', 'running'].includes(job.enrichment_status);
+      for (const td of tableContainer.querySelectorAll('td[data-email-row]')) {
+        const index = Number(td.dataset.emailRow);
+        const row = (job.results || [])[index];
+        if (!row) continue;
+        const email = String(row.email || '').trim();
+        const event = observed.get(index) || {};
+        let label = '', kind = '', detail = '';
+        const active = busy && Number(progress.current) === index + 1;
+        if (active && ['business_start', 'fetching', 'page_loaded', 'extracting'].includes(progress.phase)) {
+          label = 'Fetching…'; kind = 'fetching'; detail = progress.url || row.website || '';
+        } else if (event.outcome === 'error' || event.phase === 'page_error') {
+          label = event.http_status === 403 ? 'Blocked (403)' : event.http_status === 429
+            ? 'Rate limited (429)' : event.http_status ? `Failed (${event.http_status})` : 'Could not fetch';
+          kind = 'error'; detail = event.error || event.message || '';
+        } else if (job.enrichment_status === 'failed' && Number(progress.current) === index + 1 && event.phase !== 'business_done') {
+          label = 'Stopped'; kind = 'error'; detail = job.enrichment_error || '';
+        } else if (event.outcome === 'not_found' && !email) {
+          label = 'No email found';
+        } else if (event.outcome === 'skipped') {
+          label = 'No website';
+        } else if (busy && index >= Number(progress.completed || 0) && event.phase !== 'business_done') {
+          label = String(row.website || '').trim() ? 'Queued' : 'No website';
+        }
+        const signature = JSON.stringify([email, label, kind, detail]);
+        if (td.dataset.emailSignature === signature) continue;
+        td.dataset.emailSignature = signature;
+        td.replaceChildren();
+        if (email) {
+          const value = document.createElement('span');
+          value.textContent = email;
+          td.appendChild(value);
+        }
+        if (label) {
+          const badge = document.createElement('span');
+          badge.className = 'email-fetch-state' + (kind ? ' ' + kind : '');
+          badge.textContent = label;
+          badge.title = detail;
+          if (kind === 'fetching') badge.setAttribute('role', 'status');
+          td.appendChild(badge);
+        }
+      }
     }
 
     function prettyField(field) {
@@ -356,7 +435,7 @@
       const tbody = document.createElement('tbody');
       const filter = filterInput.value.trim().toLowerCase();
       let shown = 0;
-      for (const row of rows) {
+      for (const [index, row] of rows.entries()) {
         if (filter && !fields.some(field => String(row[field] ?? '').toLowerCase().includes(filter))) continue;
         shown++;
         const tr = document.createElement('tr');
@@ -364,6 +443,7 @@
           const td = document.createElement('td');
           const value = String(row[field] ?? '');
           if (field === 'email' || field === 'additional_emails') td.classList.add('email-cell');
+          if (field === 'email') td.dataset.emailRow = String(index);
           const safeUrl = safeLinkValue(field, value);
           if (safeUrl) {
             const link = document.createElement('a');
@@ -387,6 +467,7 @@
     filterInput.addEventListener('input', () => {
       if (!state.currentJobData) return;
       renderTable(state.currentJobData.fields || [], state.currentJobData.results || []);
+      renderEmailCells(state.currentJobData);
     });
 
     async function loadHistory() {

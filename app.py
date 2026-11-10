@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field, field_validator
 
 from extension_bundle import run_hermes_scrape as extension_scraper
-from csv_output import CSV_FIELDS, query_to_filename, save_results
+from csv_output import CSV_FIELDS, query_to_filename, save_results, replace_results
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -57,6 +57,8 @@ def _public_job(job: dict[str, Any], include_results: bool) -> dict[str, Any]:
         "status": job["status"],
         "enrichment_status": job.get("enrichment_status", "not_started"),
         "enrichment_error": job.get("enrichment_error"),
+        "enrichment_progress": job.get("enrichment_progress"),
+        "results_revision": job.get("results_revision", 0),
         "created_at": job["created_at"],
         "updated_at": job["updated_at"],
         "result_count": len(job.get("results", [])),
@@ -73,6 +75,7 @@ def _public_job(job: dict[str, Any], include_results: bool) -> dict[str, Any]:
     }
     if include_results:
         result["results"] = job.get("results", [])
+        result["enrichment_events"] = job.get("enrichment_events", [])
     return result
 
 
@@ -92,8 +95,9 @@ async def run_scraper(query: str, limit: int = 0) -> dict[str, Any]:
         }
     raw_path = save_results(leads, query + "_raw", OUTPUT_DIR)
     return {
-        "status": "completed", "results": leads,
-        "csv_path": str(raw_path), "raw_csv_path": str(raw_path), "warning": None,
+        "status": "partial" if getattr(leads, "coverage_warning", None) else "completed", "results": leads,
+        "csv_path": str(raw_path), "raw_csv_path": str(raw_path),
+        "warning": getattr(leads, "coverage_warning", None),
         "stop_reason": getattr(leads, "stop_reason", None),
     }
 
@@ -102,17 +106,20 @@ async def _execute_job(job_id: str) -> None:
     job = JOBS[job_id]
     job["status"] = "running"
     job["updated_at"] = _now()
-    job["log"].append("Loading the bundled scraping extension in headless Chromium. The extension collects Maps records.")
+    job["log"].append("Loading the bundled scraping extension in Chromium. The extension collects Maps records.")
     try:
         outcome = await run_scraper(
             job["query"], job["limit"]
         )
         job["status"] = outcome.get("status", "completed")
         job["results"] = outcome.get("results", [])
+        job["results_revision"] = job.get("results_revision", 0) + 1
         job["csv_path"] = outcome.get("csv_path")
         job["raw_csv_path"] = outcome.get("raw_csv_path")
         job["warning"] = outcome.get("warning")
         job["stop_reason"] = outcome.get("stop_reason")
+        if job["stop_reason"]:
+            job["log"].append(f"Extension stop reason: {job['stop_reason']}.")
         job["log"].append(
             f"Finished with {len(job['results'])} result(s); "
             f"{_email_count(job['results'])} listing(s) contain an extracted email."
@@ -132,20 +139,80 @@ async def _execute_email_job(job_id: str) -> None:
     job = JOBS[job_id]
     job["enrichment_status"] = "running"
     job["updated_at"] = _now()
-    job["log"].append("Looking up website emails through the extension background worker.")
+    job["log"].append("Checking businesses and website pages one at a time through the extension.")
+    rows = [dict(row) for row in job["results"]]
+    email_path = None
+
+    async def on_progress(event):
+        phase = event.get("phase", "starting")
+        messages = {
+            "starting": "Starting the extension for email lookup",
+            "business_start": "Checking website",
+            "fetching": "Fetching website page",
+            "page_loaded": "Page loaded",
+            "extracting": "Extracting email addresses from the page",
+            "page_error": "Could not fetch this page",
+            "completed": "Email lookup finished",
+            "failed": "Email lookup stopped; completed rows were preserved",
+        }
+        if phase == "business_done":
+            message = {"found": "Email available", "not_found": "No email found on the checked pages",
+                       "skipped": "Skipped - no website", "error": "Website lookup incomplete"}.get(
+                           event.get("outcome"), "Business processed")
+        else:
+            message = messages.get(phase, phase)
+        if event.get("error"):
+            message += ": " + str(event["error"])
+        entry = {**event, "at": event.get("at") or _now(), "message": message}
+        progress = dict(job.get("enrichment_progress") or {})
+        progress.update(entry)
+        progress["error"] = event.get("error", "")
+        if phase == "page_loaded":
+            progress["pages_visited"] = progress.get("pages_visited", 0) + 1
+        job["enrichment_progress"] = progress
+        events = job.setdefault("enrichment_events", [])
+        events.append(entry)
+        del events[:-80]
+        if phase == "business_done":
+            job["log"].append(f"{event['completed']}/{len(rows)} - {event.get('name', '')}: {message}")
+        job["updated_at"] = _now()
+
+    async def on_row(index, row):
+        nonlocal email_path
+        rows[index] = dict(row)
+        # Keep one derivative file, refreshing it atomically after each business.
+        # The saved raw CSV is never overwritten, including on failure/retry.
+        if email_path is None:
+            email_path = await asyncio.to_thread(save_results, rows, job["query"] + "_emails", OUTPUT_DIR)
+        else:
+            await asyncio.to_thread(replace_results, rows, email_path)
+        job["results"] = [dict(value) for value in rows]
+        job["csv_path"] = str(email_path)
+        job["results_revision"] = job.get("results_revision", 0) + 1
+        job["updated_at"] = _now()
+
     try:
-        rows = await extension_scraper.enrich_leads_with_websites(
-            [dict(row) for row in job["results"]]
+        enriched = await extension_scraper.enrich_leads_with_websites(
+            rows, on_progress=on_progress, on_row=on_row
         )
-        path = save_results(rows, job["query"] + "_emails", OUTPUT_DIR)
-        job["results"] = rows
-        job["csv_path"] = str(path)
+        if len(enriched) != len(rows):
+            raise RuntimeError("Email lookup changed the number of business rows")
+        if email_path is None:
+            email_path = await asyncio.to_thread(save_results, enriched, job["query"] + "_emails", OUTPUT_DIR)
+        else:
+            await asyncio.to_thread(replace_results, enriched, email_path)
+        job["results"] = enriched
+        job["csv_path"] = str(email_path)
+        job["results_revision"] = job.get("results_revision", 0) + 1
         job["enrichment_status"] = "completed"
-        job["log"].append(f"Email lookup finished; {_email_count(rows)} listing(s) contain an extracted email.")
+        await on_progress({"phase": "completed", "completed": len(enriched), "total": len(enriched),
+                           "current": len(enriched), "name": "", "url": ""})
+        job["log"].append(f"Email lookup finished; {_email_count(enriched)} listing(s) contain an extracted email.")
     except Exception as exc:
         job["enrichment_status"] = "failed"
         job["enrichment_error"] = f"{type(exc).__name__}: {exc}"
-        job["log"].append("Email lookup failed. The existing results and raw CSV were preserved.")
+        await on_progress({"phase": "failed", "error": job["enrichment_error"]})
+        job["log"].append("Email lookup stopped. Completed rows, their export and the raw CSV were preserved.")
     finally:
         job["updated_at"] = _now()
         if ACTIVE_JOB_ID == job_id:
@@ -168,6 +235,13 @@ async def start_email_lookup(job_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=409, detail="These results have no websites to check")
     job["enrichment_status"] = "queued"
     job["enrichment_error"] = None
+    job["enrichment_events"] = []
+    job["enrichment_progress"] = {
+        "phase": "queued", "current": 0, "completed": 0,
+        "total": len(job["results"]), "failed": 0, "skipped": 0,
+        "pages_visited": 0, "name": "", "url": "",
+        "message": "Email lookup queued",
+    }
     job["updated_at"] = _now()
     ACTIVE_JOB_ID = job_id
     task = asyncio.create_task(_execute_email_job(job_id))

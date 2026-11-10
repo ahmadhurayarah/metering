@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Metering extension runner: Chromium hosts the bundled extension headlessly.
+"""Metering extension runner: Chromium hosts the bundled extension.
 
 Maps extraction is performed by the extension content scripts. Optional website
 contact extraction is performed by the extension background worker, not Python
@@ -18,6 +18,7 @@ import re
 import csv
 import os
 import tempfile
+import shlex
 from urllib.parse import urlparse, urljoin
 from playwright.async_api import async_playwright
 
@@ -32,9 +33,14 @@ class CollectionIncomplete(RuntimeError):
 
 
 class ScrapeResults(list):
-    def __init__(self, rows, stop_reason):
+    def __init__(self, rows, stop_reason, limited_view=False):
         super().__init__(rows)
         self.stop_reason = stop_reason
+        self.limited_view = limited_view
+        self.coverage_warning = (
+            "The extension reached the end of the exposed list, but Google Maps reported limited view; coverage may be restricted."
+            if limited_view else None
+        )
 
 
 ACCESS_BOUNDARY_SCRIPT = r"""() => {
@@ -45,6 +51,39 @@ ACCESS_BOUNDARY_SCRIPT = r"""() => {
     if (/^https?:\/\/consent\.google\./i.test(location.href) || /before you continue to google/i.test(text)) return 'consent';
     return '';
 }"""
+
+
+EXTENSION_STATE_SCRIPT = """() => {
+    const button = document.getElementById('extension_gms_start_btn');
+    if (!button) return null;
+    return {
+        runId: button.dataset.runId,
+        state: button.dataset.collectionState,
+        reason: button.dataset.stopReason,
+        endReached: button.dataset.endReached === 'true',
+        limitedView: button.dataset.limitedView === 'true',
+        info: document.getElementById('extension_gms_leads_info')?.innerText || ''
+    };
+}"""
+
+
+def browser_headless() -> bool:
+    """Read HEADLESS for each new browser; environment overrides project .env."""
+    value = os.environ.get("HEADLESS")
+    if value is None:
+        env_path = ROOT.parent / ".env"
+        if env_path.is_file():
+            for line in env_path.read_text(encoding="utf-8").splitlines():
+                key, separator, raw = line.strip().removeprefix("export ").partition("=")
+                if separator and key.strip() == "HEADLESS":
+                    tokens = shlex.split(raw, comments=True)
+                    value = tokens[0] if len(tokens) == 1 else ""
+    if value is None:
+        return True
+    normalized = value.strip().lower()
+    if normalized not in {"true", "false"}:
+        raise ValueError("HEADLESS must be true or false in the environment or Metering .env")
+    return normalized == "true"
 
 
 # Maximum pages to crawl concurrently
@@ -101,45 +140,151 @@ def extract_social_links(html: str, base_url: str) -> dict:
     return social
 
 
-async def enrich_leads_with_websites(leads: list) -> list:
-    """Ask this extension's background worker to extract website contacts.
+async def _website_contacts(worker, website, name, on_event):
+    """One extension lookup at a time; poll real events while its promise runs."""
+    await worker.evaluate("""() => {
+        globalThis.__meteringEmailLookup = {
+            events: [], controllers: new Set(), cancelled: false
+        };
+    }""")
+    extraction = asyncio.create_task(worker.evaluate(
+        """async ({website, name}) => {
+            const values = await extractemail(website, name, true);
+            return Object.fromEntries(Object.entries(values).map(
+                ([key, value]) => [key, Array.from(value)]));
+        }""", {"website": website, "name": name}
+    ))
+    page_errors = 0
+    timed_out = False
 
-    Python never reads or parses business-site pages in this workflow.
+    async def drain_events():
+        nonlocal page_errors
+        events = await worker.evaluate(
+            "() => globalThis.__meteringEmailLookup.events.splice(0)"
+        )
+        for event in events:
+            if event.get("phase") == "page_error":
+                page_errors += 1
+            await on_event(event)
+
+    deadline = asyncio.get_running_loop().time() + 90
+    try:
+        while not extraction.done():
+            await drain_events()
+            if asyncio.get_running_loop().time() >= deadline:
+                timed_out = True
+                # Cancelling Python's evaluate alone would leave extension fetches
+                # alive. Abort them, then await settlement before the next business.
+                await worker.evaluate("""() => {
+                    const lookup = globalThis.__meteringEmailLookup;
+                    lookup.cancelled = true;
+                    for (const controller of lookup.controllers) controller.abort();
+                }""")
+                await asyncio.wait_for(asyncio.shield(extraction), timeout=5)
+                break
+            await asyncio.wait({extraction}, timeout=0.25)
+        extra = await extraction
+        await drain_events()
+        return extra, timed_out, page_errors
+    finally:
+        if not extraction.done():
+            extraction.cancel()
+        await asyncio.gather(extraction, return_exceptions=True)
+
+
+async def enrich_leads_with_websites(leads: list, *, on_progress=None, on_row=None) -> list:
+    """Serial extension-only website lookup, with async progress/row callbacks.
+
+    The extension owns fetching and parsing, including sequential contact pages.
+    Python relays real request events and preserves business order.
     """
-    if not any(lead.get("website") for lead in leads):
-        return [dict(lead) for lead in leads]
-    print(f"Enriching {len(leads)} listings through the extension service worker.", flush=True)
+    total = len(leads)
+    counts = {"failed": 0, "skipped": 0}
+
+    async def emit(event):
+        if on_progress is not None:
+            await on_progress({"total": total, **counts, **event})
+
+    async def keep_row(index, row):
+        if on_row is not None:
+            await on_row(index, dict(row))
+
+    await emit({"phase": "starting", "current": 0, "completed": 0,
+                "name": "", "url": ""})
+    if not any(str(lead.get("website", "")).strip() for lead in leads):
+        rows = [dict(lead) for lead in leads]
+        for index, row in enumerate(rows):
+            counts["skipped"] += 1
+            await keep_row(index, row)
+            await emit({"phase": "business_done", "outcome": "skipped",
+                        "current": index + 1, "completed": index + 1,
+                        "name": row.get("name", ""), "url": ""})
+        return rows
+
+    print(f"Enriching {total} listings sequentially through the extension.", flush=True)
     enriched = []
     with tempfile.TemporaryDirectory(prefix="metering-extension-email-") as profile:
         async with async_playwright() as p:
             context = await p.chromium.launch_persistent_context(
-                profile, headless=True, channel="chromium",
+                profile, headless=browser_headless(), channel="chromium",
                 args=[f"--disable-extensions-except={EXTENSION_PATH}",
                       f"--load-extension={EXTENSION_PATH}"],
             )
             try:
                 worker = context.service_workers[0] if context.service_workers else await context.wait_for_event("serviceworker", timeout=15000)
-                for original in leads:
+                for index, original in enumerate(leads):
                     row = dict(original)
-                    if row.get("website"):
-                        extra = await asyncio.wait_for(worker.evaluate(
-                            """async ({website, name}) => {
-                                const values = await extractemail(website, name, true);
-                                return Object.fromEntries(Object.entries(values).map(
-                                    ([key, value]) => [key, Array.from(value)]));
-                            }""", {"website": row["website"], "name": row.get("name", "")}
-                        ), timeout=90)
-                        for field, values in extra.items():
-                            if field == "email":
-                                existing = [value.strip() for value in re.split(r"[,;]", row.get("email", "")) if value.strip()]
-                                emails = list(dict.fromkeys(existing + values))
-                                if emails:
-                                    row["email"] = emails[0]
-                                    additional = [value.strip() for value in row.get("additional_emails", "").split(";") if value.strip()]
-                                    row["additional_emails"] = "; ".join(dict.fromkeys(additional + emails[1:]))
-                            elif values and not row.get(field):
-                                row[field] = "; ".join(values)
+                    website = str(row.get("website", "")).strip()
+                    meta = {"current": index + 1, "completed": index,
+                            "name": row.get("name", ""), "url": website}
+                    outcome = "skipped"
+                    error = ""
+                    if website:
+                        if website.startswith("//"):
+                            website = "https:" + website
+                        elif "://" not in website:
+                            website = "https://" + website
+                        try:
+                            parsed = urlparse(website)
+                            valid_url = parsed.scheme in {"http", "https"} and bool(parsed.hostname)
+                        except ValueError:
+                            valid_url = False
+                        if not valid_url:
+                            outcome, error = "error", "Invalid website URL"
+                        else:
+                            await emit({**meta, "url": website, "phase": "business_start"})
+
+                            async def relay(event):
+                                await emit({**meta, **event})
+
+                            extra, timed_out, page_errors = await _website_contacts(
+                                worker, website, row.get("name", ""), relay
+                            )
+                            for field, values in extra.items():
+                                if field == "email":
+                                    existing = [value.strip() for value in re.split(r"[,;]", row.get("email", "")) if value.strip()]
+                                    emails = list(dict.fromkeys(existing + values))
+                                    if emails:
+                                        row["email"] = emails[0]
+                                        additional = [value.strip() for value in row.get("additional_emails", "").split(";") if value.strip()]
+                                        row["additional_emails"] = "; ".join(dict.fromkeys(additional + emails[1:]))
+                                elif values and not row.get(field):
+                                    row[field] = "; ".join(values)
+                            outcome = "found" if str(row.get("email", "")).strip() else "not_found"
+                            if timed_out:
+                                outcome, error = "error", "Website lookup reached its 90-second safety timeout"
+                            elif page_errors and outcome == "not_found":
+                                outcome, error = "error", "One or more website pages could not be checked"
+                    if outcome == "skipped":
+                        counts["skipped"] += 1
+                    elif outcome == "error":
+                        counts["failed"] += 1
                     enriched.append(row)
+                    # Commit this row before announcing completion or starting another.
+                    await keep_row(index, row)
+                    await emit({**meta, "phase": "business_done", "outcome": outcome,
+                                "completed": index + 1, "error": error,
+                                "has_email": bool(str(row.get("email", "")).strip())})
             finally:
                 await context.close()
     return enriched
@@ -159,6 +304,7 @@ async def scrape_google_maps(query: str, limit: int = 0, output_dir: str | None 
     leads = []
     stop_reason = "unknown"
     collection_error = None
+    limited_view = False
     is_unlimited_run = limit <= 0 or limit >= 999
 
     if not os.path.isdir(EXTENSION_PATH):
@@ -170,7 +316,7 @@ async def scrape_google_maps(query: str, limit: int = 0, output_dir: str | None 
     profile = tempfile.TemporaryDirectory(prefix="metering-maps-extension-")
     user_data_dir = profile.name
 
-    is_headless_env = True  # Dashboard always uses headless full Chromium + extension.
+    is_headless_env = browser_headless()
 
     async with async_playwright() as p:
         # Launch Chromium in headless-new mode (supports extensions in newer Chrome)
@@ -187,10 +333,9 @@ async def scrape_google_maps(query: str, limit: int = 0, output_dir: str | None 
             headless_flag = True
             print("Running in headless mode (no visible window)")
         else:
-            # Desktop: run off-screen so it doesn't interrupt
-            launch_args.append("--window-position=-10000,-10000")
+            # HEADLESS=false intentionally shows the browser for manual observation.
             headless_flag = False
-            print("Running off-screen (window hidden from view)")
+            print("Running in visible Chromium mode (HEADLESS=false)")
 
         context = await p.chromium.launch_persistent_context(
             user_data_dir,
@@ -228,9 +373,18 @@ async def scrape_google_maps(query: str, limit: int = 0, output_dir: str | None 
             return await asyncio.wait_for(asyncio.shield(future_leads), timeout=15.0)
 
         async def stop_if_running():
-            button = await page.query_selector('#extension_gms_start_btn')
-            if button and await button.inner_text() == "Stop Auto Extract":
-                await button.click(timeout=3000)
+            state = await page.evaluate(EXTENSION_STATE_SCRIPT)
+            if not state:
+                return
+            if state.get('state') == 'running':
+                button = await page.query_selector('#extension_gms_start_btn')
+                if button:
+                    await button.click(timeout=3000)
+            if state.get('state') in {'running', 'stopping', 'finishing'}:
+                await page.wait_for_function(
+                    "document.getElementById('extension_gms_start_btn')?.dataset.collectionState === 'finished'",
+                    timeout=10000,
+                )
 
 
         search_url = f"https://www.google.com/maps/search/{query.replace(' ', '+')}"
@@ -253,8 +407,13 @@ async def scrape_google_maps(query: str, limit: int = 0, output_dir: str | None 
             # Click the start button
             print("Starting Auto Extract via extension...")
             await start_btn.click()
+            started = await page.evaluate(EXTENSION_STATE_SCRIPT)
+            if not started or not started.get('runId'):
+                raise RuntimeError("The extension did not acknowledge collection start")
+            run_id = started['runId']
 
-            # The extension starts scrolling. It stops when text becomes "Start Auto Extract" again.
+            # Wait for this extension run's explicit finished acknowledgement.
+            # A reset button label, low count or idle pause is not completion.
             max_wait_seconds = timeout_seconds if timeout_seconds is not None else (7200 if is_unlimited_run else (limit * 5 + 30))
             elapsed = 0
 
@@ -267,29 +426,29 @@ async def scrape_google_maps(query: str, limit: int = 0, output_dir: str | None 
                     stop_reason = boundary
                     break
 
-                # Check button state
-                btn_text = await page.evaluate("document.getElementById('extension_gms_start_btn')?.innerText")
-                if btn_text == "Start Auto Extract":
-                    stop_reason = await page.evaluate("document.getElementById('extension_gms_start_btn')?.dataset.stopReason") or "unknown"
+                state = await page.evaluate(EXTENSION_STATE_SCRIPT)
+                if not state or state.get('runId') != run_id:
+                    # UI replacement is not evidence that this run has finished.
+                    continue
+                limited_view = limited_view or state.get('limitedView', False)
+                if state.get('state') == 'finished':
+                    stop_reason = state.get('reason') or 'unknown'
+                    if stop_reason == 'end_of_list' and not state.get('endReached'):
+                        raise RuntimeError("The extension reported an end without confirming the end marker")
                     break
 
-                # Also check if we reached the requested limit
-                info_text = await page.evaluate("document.getElementById('extension_gms_leads_info')?.innerText")
-                if info_text:
-                    match = re.search(r'Leads: (\d+)', info_text)
-                    if limit > 0 and match and int(match.group(1)) >= limit:
-                        stop_reason = "limit_reached"
-                        # Reached limit, stop extraction
-                        stop_btn = await page.query_selector('#extension_gms_start_btn')
-                        if stop_btn:
-                            await stop_btn.click()
-                        break
+                # Only the optional bounded CLI mode can request a numeric stop.
+                match = re.search(r'Leads: (\d+)', state.get('info', ''))
+                if limit > 0 and match and int(match.group(1)) >= limit:
+                    stop_reason = "limit_reached"
+                    break
 
             else:
                 stop_reason = "timeout"
 
-            await stop_if_running()
-            print(f"Extension stopped: {stop_reason}. Exporting available records...")
+            if stop_reason not in {"end_of_list", "single_place", "no_results"}:
+                await stop_if_running()
+            print(f"Extension finished/stopped: {stop_reason}; limited_view={limited_view}. Exporting available records...")
             leads = await export_collected()
             print(f"Successfully captured {len(leads)} leads from extension.")
 
@@ -367,10 +526,12 @@ async def scrape_google_maps(query: str, limit: int = 0, output_dir: str | None 
 
     if incomplete:
         message = f"Collection stopped before the end of the list ({stop_reason}); available records are partial."
+        if limited_view:
+            message += " Google Maps also reported limited view while the extension was scrolling."
         if collection_error:
             message = f"Extension automation failed: {collection_error}. " + message
         raise CollectionIncomplete(message, result, stop_reason)
-    return ScrapeResults(result, stop_reason)
+    return ScrapeResults(result, stop_reason, limited_view)
 
 
 def parse_args(argv=None):

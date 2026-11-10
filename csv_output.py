@@ -1,6 +1,7 @@
 """CSV schema and collision-safe exports; no browser or collector dependencies."""
 import csv
 import re
+import tempfile
 from pathlib import Path
 
 CSV_FIELDS = [
@@ -32,4 +33,23 @@ def save_results(leads, query, output_dir):
         writer = csv.DictWriter(stream, fieldnames=CSV_FIELDS)
         writer.writeheader()
         writer.writerows({field: lead.get(field, '') for field in CSV_FIELDS} for lead in leads)
+    return path
+
+
+def replace_results(leads, path):
+    """Atomically refresh an already-allocated enrichment export, never raw data."""
+    path = Path(path)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="",
+                                         dir=path.parent, prefix=".email-checkpoint-",
+                                         suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            writer = csv.DictWriter(stream, fieldnames=CSV_FIELDS)
+            writer.writeheader()
+            writer.writerows({field: lead.get(field, "") for field in CSV_FIELDS} for lead in leads)
+        temporary.replace(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     return path

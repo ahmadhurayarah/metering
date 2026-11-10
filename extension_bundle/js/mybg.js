@@ -4,12 +4,47 @@ twitter:/(?:(?:http|https):\/\/)?(?:www.)?(?:twitter\.com|x\.com)\/(?!(oauth|acc
 SOCIAL_MEDIA_DOMAINS=new Set(["instagram","facebook","youtube","linkedin","twitter"]);function getTimestamp(){return`[${(new Date).toISOString()}]`}function decode_cf_email(a){let c="";const g=parseInt(a.slice(0,2),16);for(let d=2;a.length-d;d+=2){const h=parseInt(a.slice(d,d+2),16)^g;c+=String.fromCharCode(h)}return c}function get_domain(a){a=(new URL(a)).host.toLowerCase().split(".");return 3<=a.length&&CCTLDS.has(a[a.length-1])?a[a.length-3]:2<=a.length?a[a.length-2]:a[0]}
 function normalize_social_link(a){try{a.startsWith("//")&&(a="https:"+a);a.startsWith("http")||(a="https://"+a);const c=new URL(a);if("http:"===c.protocol||""===c.protocol)c.protocol="https:";"instagram.com"===c.host&&(c.host="www.instagram.com");"facebook.com"===c.host&&(c.host="www.facebook.com");"yelp.com"===c.host&&(c.host="www.yelp.com");"www.twitter.com"===c.host&&(c.host="twitter.com");"www.x.com"===c.host&&(c.host="x.com");"/"===c.pathname[c.pathname.length-1]&&(c.pathname=c.pathname.slice(0,
 -1));return BLACKLISTED_PATHS.has(c.pathname)?"":c.toString()}catch(c){console.warn(getTimestamp(),"normalize_social_link error: ",a,c)}return""}
-async function fetchUrlContent(a,c=1E4){const g=new AbortController;c=setTimeout(()=>g.abort(),c);try{console.log(getTimestamp(),"begin to visit url: ",a);const d=await fetch(a,{signal:g.signal,redirect:"follow"});console.log(getTimestamp(),`end to visit ${a}, ok: ${d.ok}, status: ${d.status}`);return d.ok?await d.text():(console.warn(getTimestamp(),"visit error: ",a," status: ",d.status),"")}catch(d){return console.warn(getTimestamp(),"fetch error for ",a,"AbortError"===d.name?"timeout":d.message),
-""}finally{clearTimeout(c)}}
-async function extractemail(a,c,g){try{a.startsWith("//")&&(a="https:"+a);a.startsWith("http")||(a="https://"+a);const n=await fetchUrlContent(a);if(!n||"string"!==typeof n||10>n.length)return console.warn(getTimestamp(),"visit error: ",a),{instagram:new Set,facebook:new Set,youtube:new Set,linkedin:new Set,twitter:new Set,email:new Set};var d=n.normalize("NFKC"),h=new Set;let k={};for(const b in SOCIAL_MEDIA_PLATFORMS){k[b]=new Set;const e=d.match(SOCIAL_MEDIA_PLATFORMS[b]);e&&e.forEach(f=>{f&&("email"===
+// Metering's runner observes these actual request events; no fabricated navigation.
+function meteringEmailProgress(event) {
+  const lookup = globalThis.__meteringEmailLookup;
+  if (!lookup) return;
+  lookup.events.push({...event, at: new Date().toISOString()});
+  if (lookup.events.length > 200) lookup.events.splice(0, lookup.events.length - 200);
+}
+async function fetchUrlContent(url, timeout = 10000) {
+  const lookup = globalThis.__meteringEmailLookup;
+  if (lookup?.cancelled) return "";
+  const controller = new AbortController();
+  lookup?.controllers.add(controller);
+  const timer = setTimeout(() => controller.abort(), timeout);
+  meteringEmailProgress({phase: "fetching", url});
+  console.log(getTimestamp(), "begin to visit url: ", url);
+  try {
+    const response = await fetch(url, {signal: controller.signal, redirect: "follow"});
+    if (!response.ok) {
+      meteringEmailProgress({phase: "page_error", url: response.url || url,
+        error: `HTTP ${response.status}`, http_status: response.status});
+      return "";
+    }
+    const text = await response.text();
+    meteringEmailProgress({phase: "page_loaded", url: response.url || url,
+      http_status: response.status});
+    console.log(getTimestamp(), `end to visit ${url}, status: ${response.status}`);
+    return text;
+  } catch (error) {
+    meteringEmailProgress({phase: "page_error", url, error: lookup?.cancelled
+      ? "Website lookup timed out" : error.name === "AbortError"
+      ? "Page request timed out" : error.message});
+    console.warn(getTimestamp(), "fetch error for ", url, error.message);
+    return "";
+  } finally {
+    clearTimeout(timer);
+    lookup?.controllers.delete(controller);
+  }
+}
+async function extractemail(a,c,g){try{a.startsWith("//")&&(a="https:"+a);a.startsWith("http")||(a="https://"+a);const n=await fetchUrlContent(a);if(!n||"string"!==typeof n||10>n.length)return console.warn(getTimestamp(),"visit error: ",a),{instagram:new Set,facebook:new Set,youtube:new Set,linkedin:new Set,twitter:new Set,email:new Set};meteringEmailProgress({phase:"extracting",url:a});var d=n.normalize("NFKC"),h=new Set;let k={};for(const b in SOCIAL_MEDIA_PLATFORMS){k[b]=new Set;const e=d.match(SOCIAL_MEDIA_PLATFORMS[b]);e&&e.forEach(f=>{f&&("email"===
 b?k[b].add(f):(f=normalize_social_link(f))&&k[b].add(f))})}let r;try{r=new URL(a)}catch(b){return console.warn(getTimestamp(),"Invalid URL format: ",a,b),k}c=[];try{var l=d.match(/data-cfemail="([a-f0-9]+)"/i);l&&l[1]&&k.email.add(decode_cf_email(l[1]));l=/<a[^>]+href=["']([^"']+)["']/gi;let b;for(;null!==(b=l.exec(d));)try{const e=b[1];e&&c.push((new URL(e,r)).toString())}catch(e){}}catch(b){console.warn(getTimestamp(),"Link extraction error: ",a,b)}for(const b of c)try{const e=(new URL(b)).pathname.toLowerCase();
-CONTACT_PAGE_PATHS.some(f=>e.includes(f))&&h.add(b)}catch(e){}for(var m of c)try{const b=(new URL(m)).host.toLowerCase();for(const e of SOCIAL_MEDIA_DOMAINS)if(d=!1,d="twitter"===e?"twitter.com"===b||"www.twitter.com"===b||b.endsWith(".twitter.com")||"x.com"===b||"www.x.com"===b||b.endsWith(".x.com"):b===`${e}.com`||b===`www.${e}.com`||b.endsWith(`.${e}.com`)){const f=normalize_social_link(m);f&&k[e].add(f);break}}catch(b){}if(g&&0<h.size){g=[...h];h=[];for(m=0;m<g.length;m+=10){const b=g.slice(m,
-m+10).map(f=>extractemail(f,"",!1)),e=await Promise.all(b);h.push(...e)}h.forEach(b=>{if(b)for(const e in b)b[e]&&"function"===typeof b[e].forEach&&b[e].forEach(f=>{k[e].add(f)})})}const t=new Set,q=new Set;let p;try{p=get_domain(a)}catch(b){console.warn(getTimestamp(),"get_domain error: ",a,b),p=null}k.email.forEach(b=>{const e=b.replace("u003e","").toLowerCase();Array.from(EMAIL_BLACKLIST).some(f=>e.includes(f))||(t.add(e),p&&e.includes(p)&&q.add(e))});k.email=0<q.size?q:t;return k}catch(n){return console.warn(getTimestamp(),
+CONTACT_PAGE_PATHS.some(f=>e.includes(f))&&h.add(b)}catch(e){}for(var m of c)try{const b=(new URL(m)).host.toLowerCase();for(const e of SOCIAL_MEDIA_DOMAINS)if(d=!1,d="twitter"===e?"twitter.com"===b||"www.twitter.com"===b||b.endsWith(".twitter.com")||"x.com"===b||"www.x.com"===b||b.endsWith(".x.com"):b===`${e}.com`||b===`www.${e}.com`||b.endsWith(`.${e}.com`)){const f=normalize_social_link(m);f&&k[e].add(f);break}}catch(b){}if(g&&0<h.size){g=[...h];h=[];for(const contactUrl of g){if(globalThis.__meteringEmailLookup?.cancelled)break;const values=await extractemail(contactUrl,"",!1);h.push(values)}h.forEach(b=>{if(b)for(const e in b)b[e]&&"function"===typeof b[e].forEach&&b[e].forEach(f=>{k[e].add(f)})})}const t=new Set,q=new Set;let p;try{p=get_domain(a)}catch(b){console.warn(getTimestamp(),"get_domain error: ",a,b),p=null}k.email.forEach(b=>{const e=b.replace("u003e","").toLowerCase();Array.from(EMAIL_BLACKLIST).some(f=>e.includes(f))||(t.add(e),p&&e.includes(p)&&q.add(e))});k.email=0<q.size?q:t;return k}catch(n){return console.warn(getTimestamp(),
 `visit url error: ${a}`,n),{instagram:new Set,facebook:new Set,youtube:new Set,linkedin:new Set,twitter:new Set,email:new Set}}}
 chrome.runtime.onMessage.addListener(function(a,c,g){return"openPage"===a.action?(chrome.storage.local.set({leads:a.data},function(){chrome.tabs.create({url:"dashboard.html"})}),!1):"openReviewPage"===a.action?(chrome.storage.local.set({leads:a.data},function(){chrome.tabs.create({url:"reviews.html"})}),!1):"access"===a.action?((async()=>{const d=await fetchUrlContent(a.data.url);g(d)})(),!0):"email"===a.action?((async()=>{var d=a.data;d=await extractemail(d.website,d.name,d.deep_search);const h=
 {};for(const l in d)h[l]=Array.from(d[l]);g(h)})(),!0):!1});

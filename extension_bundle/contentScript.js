@@ -186,8 +186,20 @@ function getCollectionStopReason(feed) {
   if (/^https?:\/\/consent\.google\./i.test(location.href) || /before you continue to google/i.test(text)) return "consent";
   if (!feed) return "";
   if (/you['’]ve reached the end of the list\.?/i.test(feed.innerText)) return "end_of_list";
-  if (/limited view of google maps/i.test(feed.innerText)) return "limited_view";
   return "";
+}
+
+function getResultsScrollContainer(feed) {
+  const candidates = [feed, ...feed.children];
+  let ancestor = feed.parentElement;
+  for (let depth = 0; ancestor && ancestor !== document.body && depth < 4; depth++) {
+    candidates.push(ancestor);
+    ancestor = ancestor.parentElement;
+  }
+  return candidates.find(node => {
+    const overflow = getComputedStyle(node).overflowY;
+    return /auto|scroll/.test(overflow) && node.scrollHeight > node.clientHeight + 2;
+  }) || feed;
 }
 
 (function insertPanel() {
@@ -202,72 +214,102 @@ function getCollectionStopReason(feed) {
   startBtn.className = "extension_gms_button";
   startBtn.innerText = "Start Auto Extract";
   startBtn.id = "extension_gms_start_btn";
+  startBtn.dataset.collectionState = "idle";
   startBtn.addEventListener("click", async (event) => {
     const target = event.target;
     if (auto_extract_flag) {
       target.dataset.stopReason = "manual_stop";
-      target.innerText = "Start Auto Extract";
-      target.classList.remove("active-stop");
+      target.dataset.collectionState = "stopping";
       auto_extract_flag = false;
       return;
     }
 
     target.innerText = "Stop Auto Extract";
     target.classList.add("active-stop");
+    target.dataset.runId = `${Date.now()}-${Math.random()}`;
+    target.dataset.collectionState = "running";
     target.dataset.stopReason = "running";
+    target.dataset.limitedView = "false";
+    target.dataset.endReached = "false";
     auto_extract_flag = true;
 
     try {
-      let feed = document.querySelector('[role="feed"]');
-      const boundary = getCollectionStopReason(feed);
-      if (boundary) {
-        collectVisibleSearchResults();
-        target.dataset.stopReason = boundary;
-        return;
-      }
-      if (!feed) {
-        const row = await tryExtractSinglePlace();
-        target.dataset.stopReason = row || leads.length ? "single_place"
-          : /no results found|google maps can.t find/i.test(document.body.innerText) ? "no_results" : "feed_missing";
-        return;
-      }
-
       let previousHeight = -1;
       let idleRounds = 0;
       while (auto_extract_flag) {
+        let feed = document.querySelector('[role="feed"]');
         collectVisibleSearchResults();
+        if (feed && /limited view of google maps/i.test(feed.innerText)) {
+          target.dataset.limitedView = "true";
+          leadsInfo.title = "Google Maps reports limited view; continuing to scroll available results.";
+        }
         const reason = getCollectionStopReason(feed);
+        if (reason === "end_of_list") {
+          // Let the final batch settle, then confirm the actual end message.
+          await wait(750);
+          feed = document.querySelector('[role="feed"]');
+          collectVisibleSearchResults();
+          if (getCollectionStopReason(feed) === "end_of_list") {
+            target.dataset.stopReason = "end_of_list";
+            target.dataset.endReached = "true";
+            break;
+          }
+          continue;
+        }
         if (reason) {
           target.dataset.stopReason = reason;
           break;
         }
-        feed.scrollTop = feed.scrollHeight;
-        await wait(1000 * (Math.floor(Math.random() * 3) + 1));
-        feed = document.querySelector('[role="feed"]');
         if (!feed) {
-          target.dataset.stopReason = getCollectionStopReason(null) || "feed_missing";
-          break;
+          const row = await tryExtractSinglePlace();
+          if (row) {
+            target.dataset.stopReason = "single_place";
+            break;
+          }
+          if (/no results found|google maps can.t find/i.test(document.body.innerText)) {
+            target.dataset.stopReason = "no_results";
+            break;
+          }
+          // A not-yet-rendered/replaced feed is not a finished list.
+          await wait(1000);
+          continue;
         }
+        const scroller = getResultsScrollContainer(feed);
+        // Collect each viewport rather than jumping past virtualized cards.
+        const step = Math.max(200, Math.floor(scroller.clientHeight * 0.8));
+        scroller.scrollTop = Math.min(scroller.scrollHeight, scroller.scrollTop + step);
+        await wait(1000 * (Math.floor(Math.random() * 3) + 1));
         collectVisibleSearchResults();
-        idleRounds = previousHeight === feed.scrollHeight ? idleRounds + 1 : 0;
-        previousHeight = feed.scrollHeight;
-        // An unchanged height is not the end. Nudge the feed and keep trying
-        // until Maps exposes the actual end marker or an access boundary.
-        if (idleRounds >= 3 && auto_extract_flag && !getCollectionStopReason(feed)) {
-          feed.scrollTop = Math.max(0, feed.scrollTop - feed.clientHeight - 300);
+        const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 3;
+        idleRounds = atBottom && previousHeight === scroller.scrollHeight ? idleRounds + 1 : 0;
+        previousHeight = scroller.scrollHeight;
+        // A slow/stalled batch is not completion. Nudge and keep waiting.
+        if (idleRounds >= 3 && auto_extract_flag && !getCollectionStopReason(document.querySelector('[role="feed"]'))) {
+          scroller.scrollTop = Math.max(0, scroller.scrollTop - step);
           await wait(300);
           collectVisibleSearchResults();
-          feed.scrollTop = feed.scrollHeight;
+          scroller.scrollTop = Math.min(scroller.scrollHeight, scroller.scrollTop + step);
         }
       }
     } catch (error) {
       target.dataset.stopReason = "error";
       console.warn("Extension collection interrupted:", error);
     } finally {
-      if (target.dataset.stopReason === "running") target.dataset.stopReason = "manual_stop";
-      target.innerText = "Start Auto Extract";
-      target.classList.remove("active-stop");
-      auto_extract_flag = false;
+      target.dataset.collectionState = "finishing";
+      // Publish completion only after the extension has collected the last batch.
+      try {
+        await wait(0);
+        collectVisibleSearchResults();
+      } catch (error) {
+        target.dataset.stopReason = "error";
+        console.warn("Extension final collection interrupted:", error);
+      } finally {
+        if (target.dataset.stopReason === "running") target.dataset.stopReason = "manual_stop";
+        target.innerText = "Start Auto Extract";
+        target.classList.remove("active-stop");
+        auto_extract_flag = false;
+        target.dataset.collectionState = "finished";
+      }
     }
   });
 
